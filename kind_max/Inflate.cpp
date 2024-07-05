@@ -1,0 +1,156 @@
+/*
+The MIT License (MIT)
+
+Copyright (c) 2024 sigma-axis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+#include <cstdint>
+#include <algorithm>
+#include <tuple>
+
+#include "../multi_thread.hpp"
+#include "../arithmetics.hpp"
+#include "inf_def.hpp"
+#include "masking.hpp"
+
+using namespace Calculation;
+using mask = masking::mask;
+
+template<size_t src_step, size_t a_step>
+static inline void find_max(int src_w, int src_h, int size,
+	i16 const* src_buf, size_t src_stride,
+	mask const* mask_buf, size_t mask_stride,
+	i16* a_buf, size_t a_stride, i32 const* arc)
+{
+	// arc[i]: i ranges from -size to size.
+
+	int dst_w = src_w + 2 * size, dst_h = src_h + 2 * size;
+#pragma warning(suppress : 6262) // allocating > 16 KiB on stack.
+	multi_thread(dst_h, [&](int thread_id, int thread_num)
+	{
+		// the buckets that count pixels at each alpha value (except alpha == 0).
+		uint32_t bucket[max_alpha + 1]{}; // bucket[0] is simply ignored.
+		int curr_max = 0;
+		auto add = [&](int alpha) {
+			bucket[alpha]++;
+			curr_max = std::max(curr_max, alpha);
+		};
+		auto pop = [&](int alpha) {
+			bucket[alpha]--;
+		};
+		auto update_max = [&] {
+			while (curr_max > 0 && bucket[curr_max] == 0) curr_max--;
+		};
+
+		for (int y = thread_id; y < dst_h; y += thread_num) {
+			auto s_buf_pt = src_buf - size * src_step + (y - size) * src_stride;
+			auto m_buf_pt = mask_buf + y * mask_stride;
+			auto a_buf_pt = a_buf + y * a_stride;
+
+			int const dy_min = std::max(-size, size - y), dy_max = std::min(size, dst_h - size - 1 - y);
+			for (int x = 0; x < dst_w; x++,
+				s_buf_pt += src_step, m_buf_pt++, a_buf_pt += a_step) {
+
+				switch (*m_buf_pt) {
+				case mask::zero: *a_buf_pt = curr_max = 0; continue;
+				case mask::full: *a_buf_pt = curr_max = max_alpha; continue;
+				}
+
+				// aggregate the points on the "incoming arc".
+				if (x < dst_w - size) {
+					int dy0 = dy_min, dy1 = dy_max;
+					if (x < size) {
+						auto c = arc[size - x];
+						dy0 = std::max(-c, dy_min);
+						dy1 = std::min(+c, dy_max);
+					}
+					if (x < dst_w - 2 * size) {
+						for (int dy = dy0; dy <= dy1; dy++)
+							add(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
+					}
+					else {
+						int const c = arc[dst_w - size - x] + 1,
+							c1 = std::min(-c, dy1), c0 = std::max(+c, dy0);
+						for (int dy = dy0; dy <= c1; dy++)
+							add(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
+						for (int dy = c0; dy <= dy1; dy++)
+							add(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
+					}
+				}
+
+				// write the alpha value.
+				update_max();
+				*a_buf_pt = curr_max;
+
+				// aggregate the points on the "outgoing arc".
+				if (x >= size) {
+					int dy0 = dy_min, dy1 = dy_max;
+					if (x >= dst_w - size) {
+						auto c = arc[x - dst_w + size + 1];
+						dy0 = std::max(-c, dy_min);
+						dy1 = std::min(+c, dy_max);
+					}
+					if (x >= 2 * size) {
+						for (int dy = dy0; dy <= dy1; dy++)
+							pop(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
+					}
+					else {
+						int const c = arc[x - size + 1] + 1,
+							c1 = std::min(-c, dy1), c0 = std::max(+c, dy0);
+						for (int dy = dy0; dy <= c1; dy++)
+							pop(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
+						for (int dy = c0; dy <= dy1; dy++)
+							pop(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
+					}
+				}
+			}
+		}
+	});
+}
+
+
+Bounds max::inflate(int src_w, int src_h,
+	i16* src_buf, bool src_colored, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride,
+	void* heap, int size_sq)
+{
+	using namespace masking::inflation;
+
+	auto* const arc = reinterpret_cast<i32*>(heap);
+	int const size = arith::arc::half(size_sq, arc);
+
+	auto* mask_buf = reinterpret_cast<mask*>(arc + 2 * size + 1);
+	size_t const mask_stride = (src_w + 2 * size + 3) & (-4);
+
+	auto [left, right] = (src_colored ? mask_v<4> : mask_v<1>)
+		(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride);
+	if (left >= right) return { 0,0,0,0 };
+
+	mask_buf += left;
+	src_buf += left * (src_colored ? 4 : 1);
+	dst_buf += left * (dst_colored ? 4 : 1);
+	src_w = right - left;
+
+	auto [top, bottom] = mask_h(src_w, src_h, size, mask_buf, mask_stride);
+
+	right += 2 * size;
+	mask_buf += top * mask_stride;
+	src_buf += top * src_stride;
+	dst_buf += top * dst_stride;
+	src_h = bottom - top - 2 * size;
+
+	(src_colored ?
+		dst_colored ? find_max<4, 4> : find_max<4, 1> :
+		dst_colored ? find_max<1, 4> : find_max<1, 1>)
+		(src_w, src_h, size, src_buf, src_stride,
+			mask_buf, mask_stride, dst_buf, dst_stride, arc + size);
+
+	return { left, top, right, bottom };
+}
+

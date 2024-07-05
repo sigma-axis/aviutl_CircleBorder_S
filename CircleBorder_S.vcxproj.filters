@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Bin">
+      <UniqueIdentifier>{12c9be3b-636c-49f0-988d-25991dd8972b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Bin2x">
+      <UniqueIdentifier>{4e0b0d94-a547-4592-8f0e-0831bac9e473}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Max">
+      <UniqueIdentifier>{6003cb46-c767-4cc3-9697-7b3bc5c58a7c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sum">
+      <UniqueIdentifier>{fe5d535e-6ffd-4387-8f3b-ef5f610786c6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="CircleBorder_S.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Border_filter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_bin\Inflate.cpp">
+      <Filter>Bin</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_bin\Deflate.cpp">
+      <Filter>Bin</Filter>
+    </ClCompile>
+    <ClCompile Include="buffer_op.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Border_gui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_bin2x\Inflate.cpp">
+      <Filter>Bin2x</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_max\Inflate.cpp">
+      <Filter>Max</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_bin2x\Deflate.cpp">
+      <Filter>Bin2x</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_max\Deflate.cpp">
+      <Filter>Max</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_sum\Deflate.cpp">
+      <Filter>Sum</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_sum\Inflate.cpp">
+      <Filter>Sum</Filter>
+    </ClCompile>
+    <ClCompile Include="Rounding_gui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Rounding_filter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Outline_gui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Outline_filter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="relative_path.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CircleBorder_S.def">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="CircleBorder_S.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Border.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="kind_bin\inf_def.hpp">
+      <Filter>Bin</Filter>
+    </ClInclude>
+    <ClInclude Include="multi_thread.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="arithmetics.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="buffer_op.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="buffer_base.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="filter_defl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="kind_bin2x\inf_def.hpp">
+      <Filter>Bin2x</Filter>
+    </ClInclude>
+    <ClInclude Include="kind_max\inf_def.hpp">
+      <Filter>Max</Filter>
+    </ClInclude>
+    <ClInclude Include="kind_sum\inf_def.hpp">
+      <Filter>Sum</Filter>
+    </ClInclude>
+    <ClInclude Include="kind_max\masking.hpp">
+      <Filter>Max</Filter>
+    </ClInclude>
+    <ClInclude Include="Rounding.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Outline.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tiled_image.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="relative_path.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
