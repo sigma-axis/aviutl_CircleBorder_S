@@ -394,7 +394,7 @@ namespace Filter::Common::impl::exp
 		{
 			return sum::deflate(src_w, src_h, src_buf, src_stride,
 				dst_buf, dst_colored, dst_stride, to_cap_rate(param_a),
-				reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(heap) + max::alpha_space_size(src_w, src_h)),
+				reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(heap) + sum::alpha_space_size(src_w, src_h)),
 				(sum_size_raw * sum_size_raw) / (den_radius * den_radius), heap);
 		}
 		Bounds deflate_2(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,

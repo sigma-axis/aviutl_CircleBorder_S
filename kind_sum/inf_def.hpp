@@ -51,7 +51,7 @@ namespace Calculation::sum
 	}
 
 	constexpr size_t alpha_space_size(int src_w, int src_h) {
-		return sizeof(i16) * ((src_w + 1) & (-2)) * src_h;
+		return sizeof(i16) * ((src_w + 3) & (-2)) * (src_h + 2);
 	}
 
 	size_t constexpr log2_den_cap_rate = 12,

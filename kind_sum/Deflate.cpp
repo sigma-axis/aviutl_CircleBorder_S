@@ -221,8 +221,8 @@ Bounds sum::deflate(int src_w, int src_h,
 {
 	using namespace masking::deflation;
 	return deflate_common([&](int size, int size_disk, mask* mask_buf, size_t mask_stride) {
-		i16* med_buf = reinterpret_cast<i16*>(alpha_space);
-		size_t med_stride = (src_w + 1) & (-2);
+		size_t med_stride = (src_w + 3) & (-2);
+		i16* med_buf = reinterpret_cast<i16*>(alpha_space) + (1 + med_stride);
 
 		auto [top, bottom] = (size < size_disk ? mask_h_color<1> : mask_h_color<0>)
 			(src_w, src_h, size_disk, src_buf, src_stride, mask_buf, mask_stride, med_buf, med_stride);
