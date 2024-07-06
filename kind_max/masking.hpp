@@ -34,18 +34,21 @@ namespace Calculation::masking::inflation
 	inline auto mask_v_color(int src_w, int src_h, int size,
 		ExEdit::PixelYCA const* src_buf, size_t src_stride,
 		mask* mask_buf, size_t mask_stride,
-		i16* a_buf2, size_t a_stride2)
+		i16* a_buf, size_t a_stride)
 	{
+		// has a second task to copy alpha values to a_buf
+		// --- those values are referred so many times in later processes
+		//     that it seems to be faster if they are placed within a compact space.
 		auto bounds = multi_thread(src_w, [&](int thread_id, int thread_num) {
 			int left = src_w, right = -1;
 
 			for (int x = thread_id; x < src_w; x += thread_num) {
 				auto s_buf_x = src_buf + x;
 				auto m_buf_x = mask_buf + x;
-				auto d_buf_x = a_buf2 + x;
+				auto d_buf_x = a_buf + x;
 
 				int cnt_o = 0, cnt_i = 2 * size;
-				for (int y = src_h; --y >= 0; s_buf_x += src_stride, m_buf_x += mask_stride, d_buf_x += a_stride2) {
+				for (int y = src_h; --y >= 0; s_buf_x += src_stride, m_buf_x += mask_stride, d_buf_x += a_stride) {
 					*d_buf_x = s_buf_x->a;
 
 					cnt_o--; cnt_i--;
@@ -152,8 +155,12 @@ namespace Calculation::masking::deflation
 	inline auto mask_h_color(int src_w, int src_h, int size_mask,
 		ExEdit::PixelYCA const* src_buf, size_t src_stride,
 		mask* mask_buf, size_t mask_stride,
-		i16* a_buf2, size_t a_stride2)
+		i16* a_buf, size_t a_stride)
 	{
+		// has a second task to copy alpha values to a_buf
+		// --- those values are referred so many times in later processes
+		//     that it seems to be faster if they are placed within a compact space.
+
 		using Calculation::max_alpha;
 
 		int const inner_w1 = 2 * size_mask - diff_size,
@@ -164,7 +171,7 @@ namespace Calculation::masking::deflation
 			for (int y = thread_id; y < src_h; y += thread_num) {
 				auto s_buf_y = src_buf + y * src_stride;
 				auto m_buf_y = mask_buf + y * mask_stride;
-				auto d_buf_y = a_buf2 + y * a_stride2;
+				auto d_buf_y = a_buf + y * a_stride;
 
 				if constexpr (diff_size > 0) {
 					for (int x = diff_size; --x >= 0;)
