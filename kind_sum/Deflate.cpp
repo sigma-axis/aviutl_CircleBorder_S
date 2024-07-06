@@ -175,11 +175,6 @@ inline static Bounds deflate_common(auto&& alloc_and_mask_h,
 	dst_buf += left * (dst_colored ? 4 : 1);
 	src_w = right - left + 2 * size;
 
-	//int a_sum_cap = max_alpha + static_cast<int>((
-	//	(2 * std::sqrt(2 * std::sqrt(size_sq) - 1)) - 1
-	//	) * a_sum_cap_rate * ((1.0 * max_alpha) / den_cap_rate));
-	int a_sum_cap = a_sum_cap_from_rate(a_sum_cap_rate, size_sq);
-
 	// clear the 1-dot chrome of outside the source image,
 	// as searching may reach that area otherwise the code would be too complicated.
 	if (size < size_disk) {
@@ -196,7 +191,8 @@ inline static Bounds deflate_common(auto&& alloc_and_mask_h,
 
 	(dst_colored ? take_inv_sum<1, 4> : take_inv_sum<1, 1>)
 		(src_w, src_h, size, size_disk, src_buf, src_stride,
-			mask_buf, mask_stride, dst_buf, dst_stride, a_sum_cap, arc + size_disk);
+			mask_buf, mask_stride, dst_buf, dst_stride,
+			a_sum_cap_from_rate(a_sum_cap_rate, size_sq), arc + size_disk);
 
 	return { left, top, right, bottom };
 }

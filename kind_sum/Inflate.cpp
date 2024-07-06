@@ -149,14 +149,10 @@ inline static Bounds inflate_common(auto&& alloc_and_mask_v,
 	dst_buf += top * dst_stride;
 	src_h = bottom - top - 2 * size;
 
-	//int a_sum_cap = max_alpha + static_cast<int>((
-	//	(2 * std::sqrt(2 * std::sqrt(size_sq) - 1)) - 1
-	//	) * a_sum_cap_rate * ((1.0 * max_alpha) / den_cap_rate));
-	int a_sum_cap = a_sum_cap_from_rate(a_sum_cap_rate, size_sq);
-
 	(dst_colored ? take_sum<1, 4> : take_sum<1, 1>)
 		(src_w, src_h, size, src_buf, src_stride,
-			mask_buf, mask_stride, dst_buf, dst_stride, a_sum_cap, arc + size);
+			mask_buf, mask_stride, dst_buf, dst_stride,
+			a_sum_cap_from_rate(a_sum_cap_rate, size_sq), arc + size);
 
 	return { left, top, right, bottom };
 }
