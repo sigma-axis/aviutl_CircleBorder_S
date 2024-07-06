@@ -143,12 +143,14 @@ static inline void take_inv_sum(int src_w, int src_h, int size_canvas, int size_
 }
 
 
-Bounds sum::deflate(int src_w, int src_h,
-	i16* src_buf, bool src_colored, size_t src_stride,
+inline static Bounds deflate_common(auto&& alloc_and_mask_h,
+	int src_w, int src_h,
 	i16* dst_buf, bool dst_colored, size_t dst_stride, int a_sum_cap_rate,
 	void* heap, int size_sq)
 {
+	using namespace sum;
 	using namespace masking::deflation;
+
 	auto* const arc = reinterpret_cast<i32*>(heap);
 	int const size_disk = arith::arc::half(size_sq, arc),
 		size = std::max(size_disk - 1, 0);
@@ -156,8 +158,7 @@ Bounds sum::deflate(int src_w, int src_h,
 	auto* mask_buf = reinterpret_cast<mask*>(arc + (2 * size_disk + 1));
 	size_t mask_stride = (src_w - 2 * size + 3) & (-4);
 
-	auto [top, bottom] = (src_colored ? mask_h<4> : mask_h<1>)
-		(src_w, src_h, size, size_disk, src_buf, src_stride, mask_buf, mask_stride);
+	auto [src_buf, src_stride, top, bottom] = alloc_and_mask_h(size, size_disk, mask_buf, mask_stride);
 	if (top >= bottom - 2 * size) return { 0,0,0,0 };
 
 	mask_buf += top * mask_stride;
@@ -165,37 +166,67 @@ Bounds sum::deflate(int src_w, int src_h,
 	dst_buf += top * dst_stride;
 	src_h = bottom - top;
 
-	auto [left, right] = mask_v(src_w, src_h, size, size_disk, mask_buf, mask_stride);
+	auto [left, right] = (size < size_disk ? mask_v<1> : mask_v<0>)(src_w, src_h, size_disk, mask_buf, mask_stride);
 	if (left >= right) return { 0,0,0,0 };
 
 	bottom -= 2 * size;
 	mask_buf += left;
-	src_buf += left * (src_colored ? 4 : 1);
+	src_buf += left;
 	dst_buf += left * (dst_colored ? 4 : 1);
 	src_w = right - left + 2 * size;
 
-	int a_sum_cap = max_alpha + static_cast<int>((
-		(2 * std::sqrt(2 * std::sqrt(size_sq) - 1)) - 1
-		) * a_sum_cap_rate * ((1.0 * max_alpha) / den_cap_rate));
+	//int a_sum_cap = max_alpha + static_cast<int>((
+	//	(2 * std::sqrt(2 * std::sqrt(size_sq) - 1)) - 1
+	//	) * a_sum_cap_rate * ((1.0 * max_alpha) / den_cap_rate));
+	int a_sum_cap = a_sum_cap_from_rate(a_sum_cap_rate, size_sq);
 
 	// clear the 1-dot chrome of outside the source image,
 	// as searching may reach that area otherwise the code would be too complicated.
-	if (int diff = size_disk - size; diff > 0) {
-		Bounds inner = { 0, 0, src_w, src_h },
-			outer = { left - diff, top - diff, right + 2 * size + diff, bottom + 2 * size + diff };
-		if (src_colored) {
-			auto px_buf = buff::alpha_to_pixel(src_buf);
-			buff::clear_alpha_chrome(px_buf, src_stride / 4, outer, inner);
-		}
-		else buff::clear_alpha_chrome(src_buf, src_stride, outer, inner);
+	if (size < size_disk) {
+		// assuming difference is known to be 1.
+		constexpr int diff = 1;
+
+		// left and right margins are already cleared during the call to mask_h_****<>();
+		auto len = right - left + 2 * size_disk;
+		if (top - diff < 0)
+			std::memset(src_buf + (left - diff) + (top - diff) * src_stride, 0, sizeof(*src_buf) * len);
+		if (bottom + 2 * size_disk - diff > src_h)
+			std::memset(src_buf + (left - diff) + src_h * src_stride, 0, sizeof(*src_buf) * len);
 	}
 
-	(src_colored ?
-		dst_colored ? take_inv_sum<4, 4> : take_inv_sum<4, 1> :
-		dst_colored ? take_inv_sum<1, 4> : take_inv_sum<1, 1>)
+	(dst_colored ? take_inv_sum<1, 4> : take_inv_sum<1, 1>)
 		(src_w, src_h, size, size_disk, src_buf, src_stride,
 			mask_buf, mask_stride, dst_buf, dst_stride, a_sum_cap, arc + size_disk);
 
 	return { left, top, right, bottom };
+}
+
+Bounds sum::deflate(int src_w, int src_h,
+	i16* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride, int a_sum_cap_rate,
+	void* heap, int size_sq)
+{
+	using namespace masking::deflation;
+	return deflate_common([&](int size, int size_disk, mask* mask_buf, size_t mask_stride) {
+		auto [top, bottom] = (size < size_disk ? mask_h_alpha<1> : mask_h_alpha<0>)
+			(src_w, src_h, size_disk, src_buf, src_stride, mask_buf, mask_stride);
+		return std::tuple{ src_buf, src_stride, top, bottom };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, a_sum_cap_rate, heap, size_sq);
+}
+
+Bounds sum::deflate(int src_w, int src_h,
+	ExEdit::PixelYCA const* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride, int a_sum_cap_rate,
+	void* heap, int size_sq, void* alpha_space)
+{
+	using namespace masking::deflation;
+	return deflate_common([&](int size, int size_disk, mask* mask_buf, size_t mask_stride) {
+		i16* med_buf = reinterpret_cast<i16*>(alpha_space);
+		size_t med_stride = (src_w + 1) & (-2);
+
+		auto [top, bottom] = (size < size_disk ? mask_h_color<1> : mask_h_color<0>)
+			(src_w, src_h, size_disk, src_buf, src_stride, mask_buf, mask_stride, med_buf, med_stride);
+		return std::tuple{ med_buf, med_stride, top, bottom };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, a_sum_cap_rate, heap, size_sq);
 }
 

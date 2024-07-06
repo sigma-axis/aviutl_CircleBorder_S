@@ -385,13 +385,13 @@ protected:
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
 		return bin::inflate(src_w, src_h, src_buf,
 			src_colored, src_stride, to_thresh(param_a),
-			dst_buf, false, dst_stride, *exedit.memory_ptr, (size_raw * size_raw) / (den_distance * den_distance));
+			dst_buf, false, dst_stride, heap, (size_raw * size_raw) / (den_distance * den_distance));
 	}
 	Bounds deflate_med(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
 		return bin::deflate(src_w, src_h, src_buf,
 			src_colored, src_stride, to_thresh(param_a),
-			dst_buf, false, dst_stride, *exedit.memory_ptr, (size_raw * size_raw) / (den_distance * den_distance));
+			dst_buf, false, dst_stride, heap, (size_raw * size_raw) / (den_distance * den_distance));
 	}
 };
 
@@ -451,15 +451,15 @@ protected:
 	}
 	Bounds inflate(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const override {
-		return bin2x::inflate(src_w, src_h, src_buf,
-			src_colored, src_stride, to_thresh(param_a),
-			dst_buf, false, dst_stride, *exedit.memory_ptr, (4 * size_raw * size_raw) / (den_distance * den_distance));
+		return bin2x::inflate(src_w, src_h,
+			src_buf, src_colored, src_stride, to_thresh(param_a),
+			dst_buf, false, dst_stride, heap, (4 * size_raw * size_raw) / (den_distance * den_distance));
 	}
 	Bounds deflate(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const override {
-		return bin2x::deflate(src_w, src_h, src_buf,
-			src_colored, src_stride, to_thresh(param_a),
-			dst_buf, false, dst_stride, *exedit.memory_ptr, (4 * size_raw * size_raw) / (den_distance * den_distance));
+		return bin2x::deflate(src_w, src_h,
+			src_buf, src_colored, src_stride, to_thresh(param_a),
+			dst_buf, false, dst_stride, heap, (4 * size_raw * size_raw) / (den_distance * den_distance));
 	}
 } outline_bin2x{};
 
@@ -470,10 +470,11 @@ private:
 	static void init_mem_max()
 	{
 		size_t const mem_max = obj_mem_max();
-		std::tie(mem_max_w, mem_max_h) = max_size_cand(mem_max / sizeof(i16));
+		std::tie(mem_max_w, mem_max_h) = max_size_cand(mem_max / (2 * sizeof(i16)));
 
 		// trim by 4 dots until it fits within available space.
-		while (sizeof(i16) * ((mem_max_w + 1) & (-2)) * mem_max_h > mem_max ||
+		while (sizeof(i16) * ((mem_max_w + 1) & (-2)) * mem_max_h
+			+ max::alpha_space_size(mem_max_w, mem_max_h) > mem_max ||
 			max::inflate_heap_size(mem_max_w, mem_max_h, std::min(mem_max_w, mem_max_h) >> 1) > mem_max)
 			mem_max_w -= 4, mem_max_h -= 4;
 	}
@@ -494,15 +495,21 @@ protected:
 	}
 	Bounds inflate_med(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
-		return max::inflate(src_w, src_h, src_buf,
-			src_colored, src_stride,
-			dst_buf, false, dst_stride, *exedit.memory_ptr, (size_raw * size_raw) / (den_distance * den_distance));
+		int const size_sq = (size_raw * size_raw) / (den_distance * den_distance);
+		return src_colored ?
+			max::inflate(src_w, src_h, buff::alpha_to_pixel(src_buf), src_stride / 4,
+				dst_buf, false, dst_stride, heap, size_sq, dst_buf + dst_stride * mem_max_h) :
+			max::inflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, false, dst_stride, heap, size_sq);
 	}
 	Bounds deflate_med(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
-		return max::deflate(src_w, src_h, src_buf,
-			src_colored, src_stride,
-			dst_buf, false, dst_stride, *exedit.memory_ptr, (size_raw * size_raw) / (den_distance * den_distance));
+		int const size_sq = (size_raw * size_raw) / (den_distance * den_distance);
+		return src_colored ?
+			max::deflate(src_w, src_h, buff::alpha_to_pixel(src_buf), src_stride / 4,
+				dst_buf, false, dst_stride, heap, size_sq, dst_buf + dst_stride * mem_max_h) :
+			max::deflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, false, dst_stride, heap, size_sq);
 	}
 } outline_max{};
 
@@ -517,10 +524,11 @@ private:
 	static void init_mem_max()
 	{
 		size_t const mem_max = obj_mem_max();
-		std::tie(mem_max_w, mem_max_h) = max_size_cand(mem_max / sizeof(i16));
+		std::tie(mem_max_w, mem_max_h) = max_size_cand(mem_max / sizeof(i32));
 
 		// trim by 4 dots until it fits within available space.
-		while (sizeof(i16) * ((mem_max_w + 1) & (-2)) * mem_max_h > mem_max ||
+		while (sizeof(i16) * ((mem_max_w + 1) & (-2)) * mem_max_h
+			+ sum::alpha_space_size(mem_max_w, mem_max_h) > mem_max ||
 			sum::inflate_heap_size(mem_max_w, mem_max_h, std::min(mem_max_w, mem_max_h) >> 1) > mem_max)
 			mem_max_w -= 4, mem_max_h -= 4;
 	}
@@ -541,17 +549,27 @@ protected:
 	}
 	Bounds inflate_med(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
-		return sum::inflate(src_w, src_h, src_buf,
-			src_colored, src_stride,
-			dst_buf, false, dst_stride, to_cap_rate(param_a),
-			*exedit.memory_ptr, (size_raw * size_raw) / (den_distance * den_distance));
+		int const size_sq = (size_raw * size_raw) / (den_distance * den_distance),
+			rate = to_cap_rate(param_a);
+		return src_colored ?
+			sum::inflate(src_w, src_h, buff::alpha_to_pixel(src_buf), src_stride / 4,
+				dst_buf, false, dst_stride, rate,
+				heap, size_sq, dst_buf + dst_stride * mem_max_h) :
+			sum::inflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, false, dst_stride, rate,
+				heap, size_sq);
 	}
 	Bounds deflate_med(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
 		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
-		return sum::deflate(src_w, src_h, src_buf,
-			src_colored, src_stride,
-			dst_buf, false, dst_stride, to_cap_rate(param_a),
-			*exedit.memory_ptr, (size_raw * size_raw) / (den_distance * den_distance));
+		int const size_sq = (size_raw * size_raw) / (den_distance * den_distance),
+			rate = to_cap_rate(param_a);
+		return src_colored ?
+			sum::deflate(src_w, src_h, buff::alpha_to_pixel(src_buf), src_stride / 4,
+				dst_buf, false, dst_stride, rate,
+				heap, size_sq, dst_buf + dst_stride * mem_max_h) :
+			sum::deflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, false, dst_stride, rate,
+				heap, size_sq);
 	}
 } outline_sum{};
 

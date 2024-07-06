@@ -115,11 +115,12 @@ static inline void find_max(int src_w, int src_h, int size,
 }
 
 
-Bounds max::inflate(int src_w, int src_h,
-	i16* src_buf, bool src_colored, size_t src_stride,
+inline static Bounds inflate_common(auto&& alloc_and_mask_v,
+	int src_w, int src_h,
 	i16* dst_buf, bool dst_colored, size_t dst_stride,
 	void* heap, int size_sq)
 {
+	using namespace max;
 	using namespace masking::inflation;
 
 	auto* const arc = reinterpret_cast<i32*>(heap);
@@ -128,12 +129,11 @@ Bounds max::inflate(int src_w, int src_h,
 	auto* mask_buf = reinterpret_cast<mask*>(arc + 2 * size + 1);
 	size_t const mask_stride = (src_w + 2 * size + 3) & (-4);
 
-	auto [left, right] = (src_colored ? mask_v<4> : mask_v<1>)
-		(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride);
+	auto [src_buf, src_stride, left, right] = alloc_and_mask_v(size, mask_buf, mask_stride);
 	if (left >= right) return { 0,0,0,0 };
 
 	mask_buf += left;
-	src_buf += left * (src_colored ? 4 : 1);
+	src_buf += left;
 	dst_buf += left * (dst_colored ? 4 : 1);
 	src_w = right - left;
 
@@ -145,12 +145,38 @@ Bounds max::inflate(int src_w, int src_h,
 	dst_buf += top * dst_stride;
 	src_h = bottom - top - 2 * size;
 
-	(src_colored ?
-		dst_colored ? find_max<4, 4> : find_max<4, 1> :
-		dst_colored ? find_max<1, 4> : find_max<1, 1>)
+	(dst_colored ? find_max<1, 4> : find_max<1, 1>)
 		(src_w, src_h, size, src_buf, src_stride,
 			mask_buf, mask_stride, dst_buf, dst_stride, arc + size);
 
 	return { left, top, right, bottom };
+}
+
+Bounds max::inflate(int src_w, int src_h,
+	i16* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride,
+	void* heap, int size_sq)
+{
+	using namespace masking::inflation;
+	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
+		auto [left, right] = mask_v_alpha(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride);
+		return std::tuple{ src_buf, src_stride, left, right };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, heap, size_sq);
+}
+
+Bounds max::inflate(int src_w, int src_h,
+	ExEdit::PixelYCA const* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride,
+	void* heap, int size_sq, void* alpha_space)
+{
+	using namespace masking::inflation;
+	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
+		i16* med_buf = reinterpret_cast<i16*>(alpha_space);
+		size_t med_stride = (src_w + 1) & (-2);
+		auto [left, right] = mask_v_color(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride,
+			med_buf, med_stride);
+
+		return std::tuple{ med_buf, med_stride, left, right };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, heap, size_sq);
 }
 

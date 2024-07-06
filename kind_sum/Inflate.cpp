@@ -77,14 +77,14 @@ static inline void take_sum(int src_w, int src_h, int size,
 					int_fast32_t diff = 0;
 					if (x < dst_w - 2 * size) {
 						for (int dy = dy0; dy <= dy1; dy++)
-							diff += s_buf_pt[arc[dy] * src_step + dy * src_stride];
+							diff += s_buf_pt[+arc[dy] * src_step + dy * src_stride];
 					}
 					else {
 						auto c = arc[dst_w - size - x] + 1;
 						for (int dy = dy0, c1 = std::min(-c, dy1); dy <= c1; dy++)
-							diff += s_buf_pt[arc[dy] * src_step + dy * src_stride];
+							diff += s_buf_pt[+arc[dy] * src_step + dy * src_stride];
 						for (int dy = std::max(+c, dy0); dy <= dy1; dy++)
-							diff += s_buf_pt[arc[dy] * src_step + dy * src_stride];
+							diff += s_buf_pt[+arc[dy] * src_step + dy * src_stride];
 					}
 					sum_alpha += diff;
 				}
@@ -119,11 +119,12 @@ static inline void take_sum(int src_w, int src_h, int size,
 	});
 }
 
-Bounds sum::inflate(int src_w, int src_h,
-	i16* src_buf, bool src_colored, size_t src_stride,
+inline static Bounds inflate_common(auto&& alloc_and_mask_v,
+	int src_w, int src_h,
 	i16* dst_buf, bool dst_colored, size_t dst_stride, int a_sum_cap_rate,
 	void* heap, int size_sq)
 {
+	using namespace sum;
 	using namespace masking::inflation;
 
 	auto* const arc = reinterpret_cast<i32*>(heap);
@@ -132,12 +133,11 @@ Bounds sum::inflate(int src_w, int src_h,
 	auto* mask_buf = reinterpret_cast<mask*>(arc + (2 * size + 1));
 	size_t mask_stride = (src_w + 2 * size + 3) & (-4);
 
-	auto [left, right] = (src_colored ? mask_v<4> : mask_v<1>)
-		(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride);
+	auto [src_buf, src_stride, left, right] = alloc_and_mask_v(size, mask_buf, mask_stride);
 	if (left >= right) return { 0,0,0,0 };
 
 	mask_buf += left;
-	src_buf += left * (src_colored ? 4 : 1);
+	src_buf += left;
 	dst_buf += left * (dst_colored ? 4 : 1);
 	src_w = right - left;
 
@@ -149,17 +149,43 @@ Bounds sum::inflate(int src_w, int src_h,
 	dst_buf += top * dst_stride;
 	src_h = bottom - top - 2 * size;
 
-	if (size <= 0) std::unreachable();
-	int a_sum_cap = max_alpha + static_cast<int>((
-		(2 * std::sqrt(2 * std::sqrt(size_sq) - 1)) - 1
-		) * a_sum_cap_rate * ((1.0 * max_alpha) / den_cap_rate));
+	//int a_sum_cap = max_alpha + static_cast<int>((
+	//	(2 * std::sqrt(2 * std::sqrt(size_sq) - 1)) - 1
+	//	) * a_sum_cap_rate * ((1.0 * max_alpha) / den_cap_rate));
+	int a_sum_cap = a_sum_cap_from_rate(a_sum_cap_rate, size_sq);
 
-	(src_colored ?
-		dst_colored ? take_sum<4, 4> : take_sum<4, 1> :
-		dst_colored ? take_sum<1, 4> : take_sum<1, 1>)
+	(dst_colored ? take_sum<1, 4> : take_sum<1, 1>)
 		(src_w, src_h, size, src_buf, src_stride,
 			mask_buf, mask_stride, dst_buf, dst_stride, a_sum_cap, arc + size);
 
 	return { left, top, right, bottom };
+}
+
+Bounds sum::inflate(int src_w, int src_h,
+	i16* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride, int a_sum_cap_rate,
+	void* heap, int size_sq)
+{
+	using namespace masking::inflation;
+	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
+		auto [left, right] = mask_v_alpha(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride);
+		return std::tuple{ src_buf, src_stride, left, right };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, a_sum_cap_rate, heap, size_sq);
+}
+
+Bounds sum::inflate(int src_w, int src_h,
+	ExEdit::PixelYCA const* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride, int a_sum_cap_rate,
+	void* heap, int size_sq, void* alpha_space)
+{
+	using namespace masking::inflation;
+	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
+		i16* med_buf = reinterpret_cast<i16*>(alpha_space);
+		size_t med_stride = (src_w + 1) & (-2);
+		auto [left, right] = mask_v_color(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride,
+			med_buf, med_stride);
+
+		return std::tuple{ med_buf, med_stride, left, right };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, a_sum_cap_rate, heap, size_sq);
 }
 

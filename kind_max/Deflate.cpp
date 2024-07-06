@@ -157,11 +157,13 @@ static inline void find_min(int src_w, int src_h, int size,
 	});
 }
 
-Bounds max::deflate(int src_w, int src_h,
-	i16* src_buf, bool src_colored, size_t src_stride,
+
+inline static Bounds deflate_common(auto&& alloc_and_mask_h,
+	int src_w, int src_h,
 	i16* dst_buf, bool dst_colored, size_t dst_stride,
 	void* heap, int size_sq)
 {
+	using namespace max;
 	using namespace masking::deflation;
 
 	auto* const arc = reinterpret_cast<i32*>(heap);
@@ -170,8 +172,7 @@ Bounds max::deflate(int src_w, int src_h,
 	auto* mask_buf = reinterpret_cast<mask*>(arc + (2 * size + 1));
 	size_t mask_stride = (src_w - 2 * size + 3) & (-4);
 
-	auto [top, bottom] = (src_colored ? mask_h<4> : mask_h<1>)
-		(src_w, src_h, size, size, src_buf, src_stride, mask_buf, mask_stride);
+	auto [src_buf, src_stride, top, bottom] = alloc_and_mask_h(size, mask_buf, mask_stride);
 	if (top >= bottom - 2 * size) return { 0,0,0,0 };
 
 	mask_buf += top * mask_stride;
@@ -179,20 +180,46 @@ Bounds max::deflate(int src_w, int src_h,
 	dst_buf += top * dst_stride;
 	src_h = bottom - top;
 
-	auto [left, right] = mask_v(src_w, src_h, size, size, mask_buf, mask_stride);
+	auto [left, right] = mask_v<0>(src_w, src_h, size, mask_buf, mask_stride);
 	if (left >= right) return { 0,0,0,0 };
 
 	bottom -= 2 * size;
 	mask_buf += left;
-	src_buf += left * (src_colored ? 4 : 1);
+	src_buf += left;
 	dst_buf += left * (dst_colored ? 4 : 1);
 	src_w = right - left + 2 * size;
 
-	(src_colored ?
-		dst_colored ? find_min<4, 4> : find_min<4, 1> :
-		dst_colored ? find_min<1, 4> : find_min<1, 1>)
+	(dst_colored ? find_min<1, 4> : find_min<1, 1>)
 		(src_w, src_h, size, src_buf, src_stride,
 			mask_buf, mask_stride, dst_buf, dst_stride, arc + size);
 
 	return { left, top, right, bottom };
 }
+
+Bounds max::deflate(int src_w, int src_h,
+	i16* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride,
+	void* heap, int size_sq)
+{
+	using namespace masking::deflation;
+	return deflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
+		auto [top, bottom] = mask_h_alpha<0>(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride);
+		return std::tuple{ src_buf, src_stride, top, bottom };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, heap, size_sq);
+}
+
+Bounds max::deflate(int src_w, int src_h,
+	ExEdit::PixelYCA const* src_buf, size_t src_stride,
+	i16* dst_buf, bool dst_colored, size_t dst_stride,
+	void* heap, int size_sq, void* alpha_space)
+{
+	using namespace masking::deflation;
+	return deflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
+		i16* med_buf = reinterpret_cast<i16*>(alpha_space);
+		size_t med_stride = (src_w + 1) & (-2);
+		auto [top, bottom] = mask_h_color<0>(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride,
+			med_buf, med_stride);
+		return std::tuple{ med_buf, med_stride, top, bottom };
+	}, src_w, src_h, dst_buf, dst_colored, dst_stride, heap, size_sq);
+}
+

@@ -13,14 +13,19 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 #pragma once
 
 #include <cstdint>
+#include <exedit/pixel.hpp>
 #include "../buffer_base.hpp"
 
 namespace Calculation::max
 {
 	Bounds inflate(int src_w, int src_h,
-		i16* src_buf, bool src_colored, size_t src_stride,
+		i16* src_buf, size_t src_stride,
 		i16* dst_buf, bool dst_colored, size_t dst_stride,
 		void* heap, int size_sq);
+	Bounds inflate(int src_w, int src_h,
+		ExEdit::PixelYCA const* src_buf, size_t src_stride,
+		i16* dst_buf, bool dst_colored, size_t dst_stride,
+		void* heap, int size_sq, void* alpha_space);
 
 	template<int denom>
 	constexpr int inflate_radius(int numer) { return numer / denom; }
@@ -30,9 +35,17 @@ namespace Calculation::max
 	}
 
 	Bounds deflate(int src_w, int src_h,
-		i16* src_buf, bool src_colored, size_t src_stride,
+		i16* src_buf, size_t src_stride,
 		i16* dst_buf, bool dst_colored, size_t dst_stride,
 		void* heap, int size_sq);
+	Bounds deflate(int src_w, int src_h,
+		ExEdit::PixelYCA const* src_buf, size_t src_stride,
+		i16* dst_buf, bool dst_colored, size_t dst_stride,
+		void* heap, int size_sq, void* alpha_space);
+
+	constexpr size_t alpha_space_size(int src_w, int src_h) {
+		return sizeof(i16) * ((src_w + 1) & (-2)) * src_h;
+	}
 
 	template<int denom>
 	constexpr int deflate_radius(int numer) { return numer / denom; }

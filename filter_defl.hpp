@@ -81,7 +81,7 @@ namespace Filter::Common::impl::exp
 		virtual Bounds deflate_1(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
 			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const = 0;
 		virtual Bounds deflate_2(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
-			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const = 0;
+			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap, void* alpha_space) const = 0;
 		virtual Bounds inflate_2(int neg_size_raw, int param_a, i16* src_buf, size_t src_stride,
 			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const = 0;
 
@@ -155,21 +155,23 @@ namespace Filter::Common::impl::exp
 				if (sz.do_infl) {
 					// allocate memory layout.
 					size_t const med_stride = (bd.wd() - 2 * sz.sum_displace + 1) & (-2);
-					i16* med_buffer; void* heap;
+					i16* med_buffer; void* heap; void* alpha_space;
 					if (sz.allows_buffer_overlap) {
 						med_buffer = reinterpret_cast<i16*>(efpip->obj_temp);
 						heap = *exedit.memory_ptr;
+						alpha_space = nullptr;
 					}
 					else {
 						med_buffer = reinterpret_cast<i16*>(*exedit.memory_ptr);
 						heap = med_buffer + med_stride * (bd.ht() - 2 * sz.sum_displace);
+						alpha_space = efpip->obj_temp;
 					}
 
 					// then process by two passes.
 					if (sz.do_defl) {
 						bd = deflate_2(sz.sum_size_raw, param_a,
 							efpip->obj_edit, efpip->obj_line, bd.wd(), bd.ht(),
-							med_buffer, med_stride, heap);
+							med_buffer, med_stride, heap, alpha_space);
 						if (bd.is_empty()) return {
 							.displace = result_displace,
 							.is_empty = true,
@@ -234,7 +236,7 @@ namespace Filter::Common::impl::exp
 					dst_buf, dst_stride, 0, 0, to_thresh(param_a));
 		}
 		Bounds deflate_2(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
-			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const override
+			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap, void* alpha_space) const override
 		{
 			return bin::deflate(src_w, src_h,
 				&src_buf->a, true, 4 * src_stride, to_thresh(param_a),
@@ -343,23 +345,22 @@ namespace Filter::Common::impl::exp
 			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const
 		{
 			return max::deflate(src_w, src_h,
-				&src_buf->a, true, 4 * src_stride,
+				src_buf, src_stride,
 				dst_buf, dst_colored, dst_stride,
-				heap, (sum_size_raw * sum_size_raw) / (den_radius * den_radius));
+				reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(heap) + max::alpha_space_size(src_w, src_h)),
+				(sum_size_raw * sum_size_raw) / (den_radius * den_radius), heap);
 		}
 		Bounds deflate_2(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
-			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const
+			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap, void* alpha_space) const
 		{
-			return max::deflate(src_w, src_h,
-				&src_buf->a, true, 4 * src_stride,
+			return max::deflate(src_w, src_h, src_buf, src_stride,
 				dst_buf, false, dst_stride,
-				heap, (sum_size_raw * sum_size_raw) / (den_radius * den_radius));
+				heap, (sum_size_raw * sum_size_raw) / (den_radius * den_radius), alpha_space);
 		}
 		Bounds inflate_2(int neg_size_raw, int param_a, i16* src_buf, size_t src_stride,
 			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const
 		{
-			return max::inflate(src_w, src_h,
-				src_buf, false, src_stride,
+			return max::inflate(src_w, src_h, src_buf, src_stride,
 				dst_buf, dst_colored, dst_stride,
 				heap, (neg_size_raw * neg_size_raw) / (den_radius * den_radius));
 		}
@@ -391,24 +392,22 @@ namespace Filter::Common::impl::exp
 		Bounds deflate_1(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
 			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const
 		{
-			return sum::deflate(src_w, src_h,
-				&src_buf->a, true, 4 * src_stride,
+			return sum::deflate(src_w, src_h, src_buf, src_stride,
 				dst_buf, dst_colored, dst_stride, to_cap_rate(param_a),
-				heap, (sum_size_raw * sum_size_raw) / (den_radius * den_radius));
+				reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(heap) + max::alpha_space_size(src_w, src_h)),
+				(sum_size_raw * sum_size_raw) / (den_radius * den_radius), heap);
 		}
 		Bounds deflate_2(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
-			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const
+			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap, void* alpha_space) const
 		{
-			return sum::deflate(src_w, src_h,
-				&src_buf->a, true, 4 * src_stride,
+			return sum::deflate(src_w, src_h, src_buf, src_stride,
 				dst_buf, false, dst_stride, to_cap_rate(param_a),
-				heap, (sum_size_raw * sum_size_raw) / (den_radius * den_radius));
+				heap, (sum_size_raw * sum_size_raw) / (den_radius * den_radius), alpha_space);
 		}
 		Bounds inflate_2(int neg_size_raw, int param_a, i16* src_buf, size_t src_stride,
 			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const
 		{
-			return sum::inflate(src_w, src_h,
-				src_buf, false, src_stride,
+			return sum::inflate(src_w, src_h, src_buf, src_stride,
 				dst_buf, dst_colored, dst_stride, to_cap_rate(param_a),
 				heap, (neg_size_raw * neg_size_raw) / (den_radius * den_radius));
 		}
