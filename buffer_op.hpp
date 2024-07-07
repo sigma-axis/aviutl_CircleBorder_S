@@ -53,10 +53,10 @@ namespace Calculation::buff
 		den_blur_px = 1 << log2_den_blur_px;
 	// returns the inflation size of each side.
 	void blur_alpha(ExEdit::PixelYCA* dst, size_t dst_stride,
-		int dst_x, int dst_y, int dst_w, int dst_h, int blur_px);
+		int dst_x, int dst_y, int dst_w, int dst_h, int blur_px, void* heap);
 	// returns the inflation size of each side.
 	void blur_alpha(i16* a_dst, size_t a_stride,
-		int dst_x, int dst_y, int dst_w, int dst_h, int blur_px);
+		int dst_x, int dst_y, int dst_w, int dst_h, int blur_px, void* heap);
 	constexpr int blur_displace(int blur_px) {
 		return ((blur_px - 1) >> (log2_den_blur_px + 1)) + 1;
 	}

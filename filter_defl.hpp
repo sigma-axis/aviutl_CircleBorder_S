@@ -199,9 +199,11 @@ namespace Filter::Common::impl::exp
 				// apply blur.
 				if (sz.blur_size_raw > 0) {
 					if (dst_colored) buff::blur_alpha(efpip->obj_temp, efpip->obj_line,
-						bd.L, bd.T, bd.wd(), bd.ht(), (blur_px * buff::den_blur_px) / den_radius);
+						bd.L, bd.T, bd.wd(), bd.ht(), (blur_px * buff::den_blur_px) / den_radius,
+						*exedit.memory_ptr);
 					else buff::blur_alpha(reinterpret_cast<i16*>(efpip->obj_temp), dst_stride,
-						bd.L, bd.T, bd.wd(), bd.ht(), (blur_px * buff::den_blur_px) / den_radius);
+						bd.L, bd.T, bd.wd(), bd.ht(), (blur_px * buff::den_blur_px) / den_radius,
+						*exedit.memory_ptr);
 
 					bd = bd.inflate_br(2 * sz.blur_displace);
 				}

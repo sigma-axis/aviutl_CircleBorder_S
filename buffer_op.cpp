@@ -230,7 +230,7 @@ void buff::binarize(i16 const* a_src, size_t a_stride, int src_x, int src_y, int
 
 
 template<size_t a_step>
-static inline void blur_alpha_core(i16* a_dst, size_t a_stride, int w, int h, int blur_px)
+static inline void blur_alpha_core(i16* a_dst, size_t a_stride, int w, int h, int blur_px, uint32_t* sums)
 {
 	using namespace buff;
 	if (w <= 0 || h <= 0 || blur_px <= 0) return;
@@ -257,30 +257,49 @@ static inline void blur_alpha_core(i16* a_dst, size_t a_stride, int w, int h, in
 	// perform vertical convolution.
 	auto const D = 2 * displace;
 	multi_thread(w, [&, hh = std::min(h, D), H = h - D](int thread_id, int thread_num) {
-		for (int x = w * thread_id / thread_num, x1 = w * (thread_id + 1) / thread_num;
-			x < x1; x++) {
-			auto a_y0 = a_dst + x * a_step + (H + D - 1) * a_stride,
-				a_y1 = a_y0 + D * a_stride;
-			uint32_t sum = 0;
+		int const x0 = w * thread_id / thread_num, x1 = w * (thread_id + 1) / thread_num;
+		auto a_y0 = a_dst + x0 * a_step + (H + D - 1) * a_stride,
+			a_y1 = a_y0 + D * a_stride;
+		auto* const sums_x0 = sums + x0;
+		std::memset(sums_x0, 0, sizeof(*sums_x0) * (x1 - x0));
 
-			for (int y = hh; --y >= 0; a_y1 -= a_stride, a_y0 -= a_stride) {
-				*a_y1 = calc_alpha(sum, *a_y0);
-				sum += *a_y0;
+		for (int y = hh; --y >= 0; a_y1 -= a_stride, a_y0 -= a_stride) {
+			auto a0 = a_y0, a1 = a_y1; auto sum = sums_x0;
+			for (int x = x1 - x0; --x >= 0; a0 += a_step, a1 += a_step, sum++) {
+				*a1 = calc_alpha(*sum, *a0);
+				*sum += *a0;
 			}
-			if (H >= 0) {
-				for (int y = H; --y >= 0; a_y1 -= a_stride, a_y0 -= a_stride) {
-					sum -= *a_y1;
-					*a_y1 = calc_alpha(sum, *a_y0 + *a_y1);
-					sum += *a_y0;
+		}
+		if (H >= 0) {
+			for (int y = H; --y >= 0; a_y1 -= a_stride, a_y0 -= a_stride) {
+				auto a0 = a_y0, a1 = a_y1; auto sum = sums_x0;
+				for (int x = x1 - x0; --x >= 0; a0 += a_step, a1 += a_step, sum++) {
+					*sum -= *a1;
+					*a1 = calc_alpha(*sum, *a0 + *a1);
+					*sum += *a0;
 				}
 			}
-			else {
-				auto a = calc_alpha(sum, 0);
-				for (int y = -H; --y >= 0; a_y1 -= a_stride) *a_y1 = a;
+		}
+		else {
+			auto A = a_y1;
+			{
+				auto a1 = A; auto sum = sums_x0;
+				for (int x = x1 - x0; --x >= 0; a1 += a_step, sum++)
+					*a1 = calc_alpha(*sum, 0);
+
+				a_y1 -= a_stride;
 			}
-			for (int y = hh; --y >= 0; a_y1 -= a_stride) {
-				sum -= *a_y1;
-				*a_y1 = calc_alpha(sum, *a_y1);
+			for (int y = -H - 1; --y >= 0; a_y1 -= a_stride) {
+				auto a1 = a_y1, a = A;
+				for (int x = x1 - x0; --x >= 0; a1 += a_step, a += a_step)
+					*a1 = *a;
+			}
+		}
+		for (int y = hh; --y >= 0; a_y1 -= a_stride) {
+			auto a1 = a_y1; auto sum = sums_x0;
+			for (int x = x1 - x0; --x >= 0; a1 += a_step, sum++) {
+				*sum -= *a1;
+				*a1 = calc_alpha(*sum, *a1);
 			}
 		}
 	});
@@ -319,15 +338,17 @@ static inline void blur_alpha_core(i16* a_dst, size_t a_stride, int w, int h, in
 }
 
 void buff::blur_alpha(ExEdit::PixelYCA* dst, size_t dst_stride,
-	int dst_x, int dst_y, int dst_w, int dst_h, int blur_px)
+	int dst_x, int dst_y, int dst_w, int dst_h, int blur_px, void* heap)
 {
-	blur_alpha_core<4>(&dst[dst_x + dst_y * dst_stride].a, 4 * dst_stride, dst_w, dst_h, blur_px);
+	blur_alpha_core<4>(&dst[dst_x + dst_y * dst_stride].a, 4 * dst_stride, dst_w, dst_h, blur_px,
+		reinterpret_cast<uint32_t*>(heap));
 }
 
 void buff::blur_alpha(i16* a_dst, size_t a_stride,
-	int dst_x, int dst_y, int dst_w, int dst_h, int blur_px)
+	int dst_x, int dst_y, int dst_w, int dst_h, int blur_px, void* heap)
 {
-	blur_alpha_core<1>(a_dst + dst_x + dst_y * a_stride, a_stride, dst_w, dst_h, blur_px);
+	blur_alpha_core<1>(a_dst + dst_x + dst_y * a_stride, a_stride, dst_w, dst_h, blur_px,
+		reinterpret_cast<uint32_t*>(heap));
 }
 
 

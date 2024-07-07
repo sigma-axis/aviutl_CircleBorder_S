@@ -339,7 +339,8 @@ public:
 		// apply blur.
 		if (sz.blur_size_raw > 0) {
 			buff::blur_alpha(reinterpret_cast<i16*>(efpip->obj_edit), ret.stride,
-				ret.bd.L, ret.bd.T, ret.bd.wd(), ret.bd.ht(), (sz.blur_size_raw * buff::den_blur_px) / den_blur);
+				ret.bd.L, ret.bd.T, ret.bd.wd(), ret.bd.ht(), (sz.blur_size_raw * buff::den_blur_px) / den_blur,
+				*exedit.memory_ptr);
 			ret.bd = ret.bd.inflate_br(2 * sz.blur_displace, 2 * sz.blur_displace);
 		}
 
