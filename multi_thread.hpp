@@ -48,23 +48,13 @@ inline constinit struct MultiThread {
 			}, &cxt, nullptr);
 		}
 		else {
-			std::vector<RetT> ret(num_threads() - 1);
-			auto cxt2 = std::pair{ &ret, &mutex };
+			std::vector<RetT> ret(num_threads());
 
 			exec_multi_thread_func([](int thread_id, int thread_num, void* param1, void* param2) {
-				auto ret = invoke(*reinterpret_cast<decltype(cxt)*>(param1), thread_id, thread_num);
-
 				// assign the return value to a std::vector<>.
-				auto* pcxt2 = reinterpret_cast<decltype(cxt2)*>(param2);
-				auto& vret = *pcxt2->first;
-				if (vret.size() != thread_num) [[unlikely]] {
-					// in case the number of threads is not as expected.
-					std::lock_guard lock{ *pcxt2->second };
-					if (vret.size() != thread_num)
-						vret.resize(thread_num);
-				}
-				vret[thread_id] = ret;
-			}, &cxt, &cxt2);
+				(*reinterpret_cast<decltype(ret)*>(param2))[thread_id]
+					= invoke(*reinterpret_cast<decltype(cxt)*>(param1), thread_id, thread_num);
+			}, &cxt, &ret);
 
 			return ret;
 		}
@@ -75,7 +65,6 @@ inline constinit struct MultiThread {
 	}
 
 private:
-	static inline constinit std::mutex mutex{};
 	//decltype(AviUtl::ExFunc::exec_multi_thread_func) exec_multi_thread_func = nullptr;
 	int32_t (*exec_multi_thread_func)(void(*func)(int thread_id, int thread_num, void* param1, void* param2), void* param1, void* param2) = nullptr;
 	int32_t* ptr_num_threads = nullptr; // 0x086384
