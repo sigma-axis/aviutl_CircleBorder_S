@@ -126,10 +126,12 @@ inline static Bounds inflate_common(auto&& alloc_and_mask_v,
 	auto* const arc = reinterpret_cast<i32*>(heap);
 	int const size = arith::arc::half(size_sq, arc);
 
-	auto* mask_buf = reinterpret_cast<mask*>(arc + 2 * size + 1);
+	auto* const mask_heap = reinterpret_cast<i32*>(arc + 2 * size + 1);
+
+	auto* mask_buf = reinterpret_cast<mask*>(mask_heap + 2 * (src_w + 2 * size));
 	size_t const mask_stride = (src_w + 2 * size + 3) & (-4);
 
-	auto [src_buf, src_stride, left, right] = alloc_and_mask_v(size, mask_buf, mask_stride);
+	auto [src_buf, src_stride, left, right] = alloc_and_mask_v(size, mask_buf, mask_stride, mask_heap);
 	if (left >= right) return { 0,0,0,0 };
 
 	mask_buf += left;
@@ -158,8 +160,8 @@ Bounds max::inflate(int src_w, int src_h,
 	void* heap, int size_sq)
 {
 	using namespace masking::inflation;
-	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
-		auto [left, right] = mask_v_alpha(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride);
+	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride, void* mask_heap) {
+		auto [left, right] = mask_v_alpha(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride, mask_heap);
 		return std::tuple{ src_buf, src_stride, left, right };
 	}, src_w, src_h, dst_buf, dst_colored, dst_stride, heap, size_sq);
 }
@@ -170,10 +172,10 @@ Bounds max::inflate(int src_w, int src_h,
 	void* heap, int size_sq, void* alpha_space)
 {
 	using namespace masking::inflation;
-	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride) {
+	return inflate_common([&](int size, mask* mask_buf, size_t mask_stride, void* mask_heap) {
 		i16* med_buf = reinterpret_cast<i16*>(alpha_space);
 		size_t med_stride = (src_w + 1) & (-2);
-		auto [left, right] = mask_v_color(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride,
+		auto [left, right] = mask_v_color(src_w, src_h, size, src_buf, src_stride, mask_buf, mask_stride, mask_heap,
 			med_buf, med_stride);
 
 		return std::tuple{ med_buf, med_stride, left, right };

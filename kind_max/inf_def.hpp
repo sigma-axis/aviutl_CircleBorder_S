@@ -31,7 +31,8 @@ namespace Calculation::max
 	constexpr int inflate_radius(int numer) { return numer / denom; }
 	// size = floor(size_sq^(1/2)).
 	constexpr size_t inflate_heap_size(int dst_w, int dst_h, int size) {
-		return sizeof(int8_t) * (dst_w * dst_h) + sizeof(i32) * (2 * size + 1);
+		return sizeof(int8_t) * (dst_w * dst_h) + sizeof(i32) * (2 * size + 1)
+			+ 2 * sizeof(i32) * dst_w;
 	}
 
 	Bounds deflate(int src_w, int src_h,
@@ -43,15 +44,16 @@ namespace Calculation::max
 		i16* dst_buf, bool dst_colored, size_t dst_stride,
 		void* heap, int size_sq, void* alpha_space);
 
-	constexpr size_t alpha_space_size(int src_w, int src_h) {
-		return sizeof(i16) * ((src_w + 1) & (-2)) * src_h;
-	}
-
 	template<int denom>
 	constexpr int deflate_radius(int numer) { return numer / denom; }
 	// size = floor(size_sq^(1/2)).
 	constexpr size_t deflate_heap_size(int src_w, int src_h, int size) {
-		return sizeof(int8_t) * (src_w * src_h) + sizeof(i32) * (2 * size + 1);
+		return sizeof(int8_t) * (src_w * src_h) + sizeof(i32) * (2 * size + 1)
+			+ 2 * sizeof(i32) * (src_w - 2 * size);
+	}
+
+	constexpr size_t alpha_space_size(int src_w, int src_h) {
+		return sizeof(i16) * ((src_w + 1) & (-2)) * src_h;
 	}
 }
 

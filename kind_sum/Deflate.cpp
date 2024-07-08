@@ -155,7 +155,9 @@ inline static Bounds deflate_common(auto&& alloc_and_mask_h,
 	int const size_disk = arith::arc::half(size_sq, arc),
 		size = std::max(size_disk - 1, 0);
 
-	auto* mask_buf = reinterpret_cast<mask*>(arc + (2 * size_disk + 1));
+	auto* mask_heap = reinterpret_cast<i32*>(arc + (2 * size_disk + 1));
+
+	auto* mask_buf = reinterpret_cast<mask*>(mask_heap + 2 * (src_w - 2 * size));
 	size_t mask_stride = (src_w - 2 * size + 3) & (-4);
 
 	auto [src_buf, src_stride, top, bottom] = alloc_and_mask_h(size, size_disk, mask_buf, mask_stride);
@@ -166,7 +168,7 @@ inline static Bounds deflate_common(auto&& alloc_and_mask_h,
 	dst_buf += top * dst_stride;
 	src_h = bottom - top;
 
-	auto [left, right] = (size < size_disk ? mask_v<1> : mask_v<0>)(src_w, src_h, size_disk, mask_buf, mask_stride);
+	auto [left, right] = (size < size_disk ? mask_v<1> : mask_v<0>)(src_w, src_h, size_disk, mask_buf, mask_stride, mask_heap);
 	if (left >= right) return { 0,0,0,0 };
 
 	bottom -= 2 * size;

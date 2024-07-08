@@ -13,6 +13,8 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 #pragma once
 
 #include <cstdint>
+#include <cmath>
+
 #include <exedit/pixel.hpp>
 #include "../buffer_base.hpp"
 
@@ -31,7 +33,8 @@ namespace Calculation::sum
 	constexpr int inflate_radius(int numer) { return numer / denom; }
 	// size = floor(size_sq^(1/2)).
 	constexpr size_t inflate_heap_size(int dst_w, int dst_h, int size) {
-		return sizeof(int8_t) * (dst_w * dst_h) + sizeof(i32) * (2 * size + 1);
+		return sizeof(int8_t) * (dst_w * dst_h) + sizeof(i32) * (2 * size + 1)
+			+ 2 * sizeof(i32) * dst_w;
 	}
 
 	Bounds deflate(int src_w, int src_h,
@@ -47,11 +50,8 @@ namespace Calculation::sum
 	constexpr int deflate_radius(int numer) { return std::max(0, numer / denom - 1); }
 	// size = floor(size_sq^(1/2)).
 	constexpr size_t deflate_heap_size(int src_w, int src_h, int size) {
-		return sizeof(int8_t) * (src_w * src_h) + sizeof(i32) * (2 * size + 1);
-	}
-
-	constexpr size_t alpha_space_size(int src_w, int src_h) {
-		return sizeof(i16) * ((src_w + 3) & (-2)) * (src_h + 2);
+		return sizeof(int8_t) * (src_w * src_h) + sizeof(i32) * (2 * size + 1)
+			+ 2 * sizeof(i32) * (src_w - 2 * size + 2);
 	}
 
 	size_t constexpr log2_den_cap_rate = 12,
@@ -61,6 +61,10 @@ namespace Calculation::sum
 		return max_alpha + static_cast<int>((
 			(2 * std::sqrt(2 * std::sqrt(size_sq) - 1)) - 1
 			) * a_sum_cap_rate * ((1.0 * max_alpha) / den_cap_rate));
+	}
+
+	constexpr size_t alpha_space_size(int src_w, int src_h) {
+		return sizeof(i16) * ((src_w + 3) & (-2)) * (src_h + 2);
 	}
 }
 

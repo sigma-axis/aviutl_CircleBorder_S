@@ -209,23 +209,21 @@ public:
 			if (sz.do_defl) {
 				// allocate memory layout.
 				size_t med_stride = (bd.wd() + 2 * sz.sum_displace + 1) & (-2);
-				i16* med_buffer; void* heap; void* alpha_space;
+				i16* med_buffer; void* heap;
 				if (sz.allows_buffer_overlap) {
 					med_buffer = reinterpret_cast<i16*>(efpip->obj_temp);
 					heap = *exedit.memory_ptr;
-					alpha_space = nullptr;
 				}
 				else {
 					med_buffer = reinterpret_cast<i16*>(*exedit.memory_ptr);
 					heap = med_buffer + med_stride * (bd.ht() + 2 * sz.sum_displace);
-					alpha_space = efpip->obj_temp;
 				}
 
 				// then process by two passes.
 				if (sz.do_infl) {
 					bd = inflate_2(sz.sum_size_raw, param_a,
 						efpip->obj_edit, efpip->obj_line, bd.wd(), bd.ht(),
-						med_buffer, med_stride, heap, alpha_space);
+						med_buffer, med_stride, heap, efpip->obj_temp);
 					if (bd.is_empty()) return {
 						.displace = displace,
 						.is_empty = true,
