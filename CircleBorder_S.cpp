@@ -45,8 +45,8 @@ void ExEdit092::init_pointers(AviUtl::FilterPlugin* efp)
 	pick_addr(nextundo,				0x08d150);
 
 	// make ready the multi-thread function feature.
-	constexpr uint32_t ofs_num_threads_address = 0x086384;
-	auto aviutl_base = reinterpret_cast<uint32_t>(fp->hinst_parent);
+	constexpr ptrdiff_t ofs_num_threads_address = 0x086384;
+	auto aviutl_base = reinterpret_cast<uintptr_t>(fp->hinst_parent);
 	multi_thread.init(fp->exfunc->exec_multi_thread_func,
 		reinterpret_cast<int32_t*>(aviutl_base + ofs_num_threads_address));
 }

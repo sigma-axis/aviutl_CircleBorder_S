@@ -37,62 +37,61 @@ namespace Calculation::masking::inflation
 		mask* mask_buf, size_t mask_stride, void* heap,
 		i16* a_buf, size_t a_stride)
 	{
-		auto cnt_o0 = reinterpret_cast<i32*>(heap),
-			cnt_i0 = cnt_o0 + src_w;
-		std::memset(cnt_o0, 0, sizeof(i32) * src_w);
+		struct Cnt { i32 i, o; };
+		auto cnt0 = reinterpret_cast<Cnt*>(heap);
 		// has a second task to copy alpha values to a_buf
 		// --- those values are referred so many times in later processes
 		//     that it seems to be faster if they are placed within a compact space.
 		auto bounds = multi_thread(src_w, [&](int thread_id, int thread_num) {
 			int const x0 = src_w * thread_id / thread_num, x1 = src_w * (thread_id + 1) / thread_num;
-			auto const cnt_o_x0 = cnt_o0 + x0, cnt_i_x0 = cnt_i0 + x0;
+			auto const cnt_x0 = cnt0 + x0;
 
 			auto s_buf_x0 = src_buf + x0;
 			auto m_buf_x0 = mask_buf + x0;
 			auto d_buf_x0 = a_buf + x0;
 
 			{
-				auto cnt_i = cnt_i_x0;
-				for (int x = x1 - x0; --x >= 0; cnt_i++) *cnt_i = 2 * size;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; cnt++) *cnt = { 2 * size, 0 };
 			}
 
 			for (int y = src_h; --y >= 0; s_buf_x0 += src_stride, m_buf_x0 += mask_stride, d_buf_x0 += a_stride) {
 				auto s_buf_x = s_buf_x0; auto m_buf_x = m_buf_x0; auto d_buf_x = d_buf_x0;
-				auto cnt_o = cnt_o_x0, cnt_i = cnt_i_x0;
-				for (int x = x1 - x0; --x >= 0; s_buf_x++, m_buf_x++, d_buf_x++, cnt_o++, cnt_i++) {
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; s_buf_x++, m_buf_x++, d_buf_x++, cnt++) {
 					*d_buf_x = s_buf_x->a;
 
-					--*cnt_o; --*cnt_i;
-					if (*d_buf_x > 0) *cnt_o = 2 * size; else *d_buf_x = 0;
-					if (*d_buf_x < max_alpha) *cnt_i = 2 * size; else *d_buf_x = max_alpha;
-					*m_buf_x = *cnt_o < 0 ? mask::zero :
-						*cnt_i < 0 ? mask::full : mask::gray;
+					--cnt->o; --cnt->i;
+					if (*d_buf_x > 0) cnt->o = 2 * size; else *d_buf_x = 0;
+					if (*d_buf_x < max_alpha) cnt->i = 2 * size; else *d_buf_x = max_alpha;
+					*m_buf_x = cnt->o < 0 ? mask::zero :
+						cnt->i < 0 ? mask::full : mask::gray;
 				}
 			}
 			for (int y = 2 * size; --y >= 0; m_buf_x0 += mask_stride) {
 				auto m_buf_x = m_buf_x0;
-				auto cnt_o = cnt_o_x0;
-				for (int x = x1 - x0; --x >= 0; m_buf_x++, cnt_o++) {
-					--*cnt_o;
-					*m_buf_x = *cnt_o < 0 ? mask::zero : mask::gray;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; m_buf_x++, cnt++) {
+					--cnt->o;
+					*m_buf_x = cnt->o < 0 ? mask::zero : mask::gray;
 				}
 			}
 
 			// identify the bounding box.
 			int left = -1, right;
 			{
-				auto cnt_o = cnt_o_x0;
-				for (int x = x0; x < x1; x++, cnt_o++) {
-					if (*cnt_o > -src_h) {
+				auto cnt = cnt_x0;
+				for (int x = x0; x < x1; x++, cnt++) {
+					if (cnt->o > -src_h) {
 						left = x;
 						break;
 					}
 				}
 				if (left >= 0) {
 					// some (partially) opaque pixels found.
-					cnt_o = cnt_o_x0 + (x1 - x0 - 1);
-					for (int x = x1 - 1;; x--, cnt_o--) {
-						if (*cnt_o > -src_h) {
+					cnt = cnt_x0 + (x1 - x0 - 1);
+					for (int x = x1 - 1;; x--, cnt--) {
+						if (cnt->o > -src_h) {
 							right = x;
 							break;
 						}
@@ -116,57 +115,56 @@ namespace Calculation::masking::inflation
 		i16* a_buf, size_t a_stride,
 		mask* mask_buf, size_t mask_stride, void* heap)
 	{
-		auto cnt_o0 = reinterpret_cast<i32*>(heap),
-			cnt_i0 = cnt_o0 + src_w;
-		std::memset(cnt_o0, 0, sizeof(i32) * src_w);
+		struct Cnt { i32 i, o; };
+		auto cnt0 = reinterpret_cast<Cnt*>(heap);
 
 		auto bounds = multi_thread(src_w, [&](int thread_id, int thread_num) {
 			int const x0 = src_w * thread_id / thread_num, x1 = src_w * (thread_id + 1) / thread_num;
-			auto const cnt_o_x0 = cnt_o0 + x0, cnt_i_x0 = cnt_i0 + x0;
+			auto const cnt_x0 = cnt0 + x0;
 
 			auto a_buf_x0 = a_buf + x0;
 			auto m_buf_x0 = mask_buf + x0;
 
 			{
-				auto cnt_i = cnt_i_x0;
-				for (int x = x1 - x0; --x >= 0; cnt_i++) *cnt_i = 2 * size;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; cnt++) *cnt = { 2 * size, 0 };
 			}
 
 			for (int y = src_h; --y >= 0; a_buf_x0 += a_stride, m_buf_x0 += mask_stride) {
 				auto a_buf_x = a_buf_x0; auto m_buf_x = m_buf_x0;
-				auto cnt_o = cnt_o_x0, cnt_i = cnt_i_x0;
-				for (int x = x1 - x0; --x >= 0; a_buf_x++, m_buf_x++, cnt_o++, cnt_i++) {
-					--*cnt_o; --*cnt_i;
-					if (*a_buf_x > 0) *cnt_o = 2 * size; else *a_buf_x = 0;
-					if (*a_buf_x < max_alpha) *cnt_i = 2 * size; else *a_buf_x = max_alpha;
-					*m_buf_x = *cnt_o < 0 ? mask::zero :
-						*cnt_i < 0 ? mask::full : mask::gray;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; a_buf_x++, m_buf_x++, cnt++) {
+					--cnt->o; --cnt->i;
+					if (*a_buf_x > 0) cnt->o = 2 * size; else *a_buf_x = 0;
+					if (*a_buf_x < max_alpha) cnt->i = 2 * size; else *a_buf_x = max_alpha;
+					*m_buf_x = cnt->o < 0 ? mask::zero :
+						cnt->i < 0 ? mask::full : mask::gray;
 				}
 			}
 			for (int y = 2 * size; --y >= 0; m_buf_x0 += mask_stride) {
 				auto m_buf_x = m_buf_x0;
-				auto cnt_o = cnt_o_x0;
-				for (int x = x1 - x0; --x >= 0; m_buf_x++, cnt_o++) {
-					--*cnt_o;
-					*m_buf_x = *cnt_o < 0 ? mask::zero : mask::gray;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; m_buf_x++, cnt++) {
+					--cnt->o;
+					*m_buf_x = cnt->o < 0 ? mask::zero : mask::gray;
 				}
 			}
 
 			// identify the bounding box.
 			int left = -1, right;
 			{
-				auto cnt_o = cnt_o_x0;
-				for (int x = x0; x < x1; x++, cnt_o++) {
-					if (*cnt_o > -src_h) {
+				auto cnt = cnt_x0;
+				for (int x = x0; x < x1; x++, cnt++) {
+					if (cnt->o > -src_h) {
 						left = x;
 						break;
 					}
 				}
 				if (left >= 0) {
 					// some (partially) opaque pixels found.
-					cnt_o = cnt_o_x0 + (x1 - x0 - 1);
-					for (int x = x1 - 1;; x--, cnt_o--) {
-						if (*cnt_o > -src_h) {
+					cnt = cnt_x0 + (x1 - x0 - 1);
+					for (int x = x1 - 1;; x--, cnt--) {
+						if (cnt->o > -src_h) {
 							right = x;
 							break;
 						}
@@ -358,56 +356,55 @@ namespace Calculation::masking::deflation
 			inner_h1 = 2 * size_mask - diff_size,
 			inner_h2 = src_h - inner_h1;
 
-		auto cnt_o0 = reinterpret_cast<i32*>(heap),
-			cnt_i0 = cnt_o0 + dst_w;
-		std::memset(cnt_o0, 0, sizeof(i32) * dst_w);
+		struct Cnt { i32 i, o; };
+		auto cnt0 = reinterpret_cast<Cnt*>(heap);
 
 		auto bounds = multi_thread(dst_w, [&](int thread_id, int thread_num) {
 
 			int const x0 = dst_w * thread_id / thread_num, x1 = dst_w * (thread_id + 1) / thread_num;
-			auto const cnt_o_x0 = cnt_o0 + x0, cnt_i_x0 = cnt_i0 + x0;
+			auto const cnt_x0 = cnt0 + x0;
 
 			auto m_buf_s0 = mask_buf + x0, m_buf_d0 = m_buf_s0;
 			{
-				auto cnt_i = cnt_i_x0;
-				for (int x = x1 - x0; --x >= 0; cnt_i++) *cnt_i = 2 * size_mask;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; cnt++) *cnt = { 2 * size_mask, 0 };
 			}
 			for (int y = inner_h1; --y >= 0; m_buf_s0 += mask_stride) {
 				auto m_buf_s = m_buf_s0;
-				auto cnt_o = cnt_o_x0, cnt_i = cnt_i_x0;
-				for (int x = x1 - x0; --x >= 0; m_buf_s++, cnt_o++, cnt_i++) {
-					--*cnt_o; --*cnt_i;
-					if (*m_buf_s != mask::zero) *cnt_o = 2 * size_mask;
-					if (*m_buf_s != mask::full) *cnt_i = 2 * size_mask;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; m_buf_s++, cnt++) {
+					--cnt->o; --cnt->i;
+					if (*m_buf_s != mask::zero) cnt->o = 2 * size_mask;
+					if (*m_buf_s != mask::full) cnt->i = 2 * size_mask;
 				}
 			}
 			for (int y = inner_h2; --y >= 0; m_buf_s0 += mask_stride, m_buf_d0 += mask_stride) {
 				auto m_buf_s = m_buf_s0, m_buf_d = m_buf_d0;
-				auto cnt_o = cnt_o_x0, cnt_i = cnt_i_x0;
-				for (int x = x1 - x0; --x >= 0; m_buf_s++, m_buf_d++, cnt_o++, cnt_i++) {
-					--*cnt_o; --*cnt_i;
-					if (*m_buf_s != mask::zero) *cnt_o = 2 * size_mask;
-					if (*m_buf_s != mask::full) *cnt_i = 2 * size_mask;
-					*m_buf_d = *cnt_o < 0 ? mask::zero :
-						*cnt_i < 0 ? mask::full : mask::gray;
+				auto cnt = cnt_x0;
+				for (int x = x1 - x0; --x >= 0; m_buf_s++, m_buf_d++, cnt++) {
+					--cnt->o; --cnt->i;
+					if (*m_buf_s != mask::zero) cnt->o = 2 * size_mask;
+					if (*m_buf_s != mask::full) cnt->i = 2 * size_mask;
+					*m_buf_d = cnt->o < 0 ? mask::zero :
+						cnt->i < 0 ? mask::full : mask::gray;
 				}
 			}
 
 			// identify the bounding box.
 			int left = -1, right;
 			{
-				auto cnt_o = cnt_o_x0;
-				for (int x = x0; x < x1; x++, cnt_o++) {
-					if (*cnt_o > -src_h) {
+				auto cnt = cnt_x0;
+				for (int x = x0; x < x1; x++, cnt++) {
+					if (cnt->o > -src_h) {
 						left = x;
 						break;
 					}
 				}
 				if (left >= 0) {
 					// some (partially) opaque pixels found.
-					cnt_o = cnt_o_x0 + (x1 - x0 - 1);
-					for (int x = x1 - 1;; x--, cnt_o--) {
-						if (*cnt_o > -src_h) {
+					cnt = cnt_x0 + (x1 - x0 - 1);
+					for (int x = x1 - 1;; x--, cnt--) {
+						if (cnt->o > -src_h) {
 							right = x;
 							break;
 						}
@@ -423,10 +420,10 @@ namespace Calculation::masking::deflation
 			if constexpr (diff_size > 0) {
 				for (int y = diff_size; --y >= 0; m_buf_d0 += mask_stride) {
 					auto m_buf_d = m_buf_d0;
-					auto cnt_o = cnt_o_x0;
-					for (int x = x1 - x0; --x >= 0; m_buf_d++, cnt_o++) {
-						--*cnt_o;
-						*m_buf_d = *cnt_o < 0 ? mask::zero : mask::gray;
+					auto cnt = cnt_x0;
+					for (int x = x1 - x0; --x >= 0; m_buf_d++, cnt++) {
+						--cnt->o;
+						*m_buf_d = cnt->o < 0 ? mask::zero : mask::gray;
 					}
 				}
 			}
