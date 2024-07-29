@@ -38,7 +38,7 @@ namespace Calculation::bin2x
 	constexpr int deflate_radius(int numer) { return numer / denom; }
 	// size = floor(size2_sq^(1/2)/2).
 	constexpr size_t deflate_heap_size(int src_w, int src_h, int size) {
-		return sizeof(i32) * (src_w * src_h + 2 * size + 4);
+		return sizeof(i32) * ((src_w - 2 * size) * (src_h + 2) + 2 * size + 4);
 	}
 }
 

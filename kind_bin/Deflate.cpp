@@ -68,39 +68,62 @@ static inline void pass1(int src_w, int src_h, int size,
 template<size_t a_step>
 static inline void pass2(int src_w, int src_h, int size,
 	i32 const* med_buf, size_t med_stride,
-	i16* a_buf, size_t a_stride, i32 const* arc)
+	i16* a_buf, size_t a_stride, i32 const* arc, i32* cnt_buf)
 {
 	auto dst_w = src_w - 2 * size, dst_h = src_h - 2 * size;
 	multi_thread(dst_w, [=](int thread_id, int thread_num) {
-		for (int x = thread_id; x < dst_w; x += thread_num) {
-			auto m_buf_x = med_buf + x;
-			auto a_buf_x = a_buf + x * a_step;
+		int x0 = dst_w * thread_id / thread_num, x1 = dst_w * (thread_id + 1) / thread_num;
+		auto m_buf_x0 = med_buf + x0;
+		auto a_buf_x0 = a_buf + x0 * a_step;
+		auto const count_x0 = cnt_buf + x0;
 
-			// top -> bottom
-			int count = size;
-			auto m_buf_y = m_buf_x;
-			auto a_buf_y = a_buf_x;
-			for (int y = size; --y >= 0; m_buf_y += med_stride) {
-				count--;
-				if (*m_buf_y <= size) count = std::max(count, arc[*m_buf_y]);
-			}
-			for (int y = dst_h; --y >= 0; m_buf_y += med_stride, a_buf_y += a_stride) {
-				count--;
-				if (*m_buf_y <= size) count = std::max(count, arc[*m_buf_y]);
-				*a_buf_y = count < 0 ? max_alpha : 0;
-			}
+		auto set_count = [&](int val) {
+			auto count = count_x0;
+			for (int x = x1 - x0; --x >= 0; count++) *count = { val };
+		};
 
-			// top <- bottom
-			count = size;
-			m_buf_y += size * med_stride; m_buf_y -= med_stride; a_buf_y -= a_stride;
-			for (int y = size; --y >= 0; m_buf_y -= med_stride) {
-				count--;
-				if (*m_buf_y <= size) count = std::max(count, arc[*m_buf_y]);
+		// top -> bottom
+		set_count(size);
+		for (int y = size; --y >= 0; m_buf_x0 += med_stride) {
+			auto count = count_x0;
+			auto m_buf_y = m_buf_x0;
+			for (int x = x1 - x0; --x >= 0; count++, m_buf_y++) {
+				--*count;
+				if (*m_buf_y <= size) *count = std::max(*count, arc[*m_buf_y]);
 			}
-			for (int y = dst_h; --y >= 0; m_buf_y -= med_stride, a_buf_y -= a_stride) {
-				count--;
-				if (*m_buf_y <= size) count = std::max(count, arc[*m_buf_y]);
-				if (count >= 0) *a_buf_y = 0; // std::min(*a_buf_y, 0)
+		}
+		for (int y = dst_h; --y >= 0; m_buf_x0 += med_stride, a_buf_x0 += a_stride) {
+			auto count = count_x0;
+			auto m_buf_y = m_buf_x0;
+			auto a_buf_y = a_buf_x0;
+
+			for (int x = x1 - x0; --x >= 0; count++, m_buf_y++, a_buf_y += a_step) {
+				--*count;
+				if (*m_buf_y <= size) *count = std::max(*count, arc[*m_buf_y]);
+				*a_buf_y = *count < 0 ? max_alpha : 0;
+			}
+		}
+
+		// top <- bottom
+		set_count(size);
+		m_buf_x0 += size * med_stride; m_buf_x0 -= med_stride; a_buf_x0 -= a_stride;
+		for (int y = size; --y >= 0; m_buf_x0 -= med_stride) {
+			auto count = count_x0;
+			auto m_buf_y = m_buf_x0;
+			for (int x = x1 - x0; --x >= 0; count++, m_buf_y++) {
+				--*count;
+				if (*m_buf_y <= size) *count = std::max(*count, arc[*m_buf_y]);
+			}
+		}
+		for (int y = dst_h; --y >= 0; m_buf_x0 -= med_stride, a_buf_x0 -= a_stride) {
+			auto count = count_x0;
+			auto m_buf_y = m_buf_x0;
+			auto a_buf_y = a_buf_x0;
+
+			for (int x = x1 - x0; --x >= 0; count++, m_buf_y++, a_buf_y += a_step) {
+				--*count;
+				if (*m_buf_y <= size) *count = std::max(*count, arc[*m_buf_y]);
+				if (*count >= 0) *a_buf_y = 0; // std::min(*a_buf_y, 0)
 			}
 		}
 	});
@@ -113,13 +136,15 @@ Bounds bin::deflate(int src_w, int src_h,
 {
 	auto* const arc = reinterpret_cast<i32*>(heap);
 	int size = arith::arc::quarter(size_sq, arc);
-	auto* const med_buf = arc + size + 1;
+	int const dst_w = src_w - 2 * size;
+	auto* cnt_buf = arc + size + 1;
+	auto* const med_buf = cnt_buf + dst_w;
 
 	(src_colored ? pass1<4> : pass1<1>)
-		(src_w, src_h, size, src_buf, src_stride, thresh, med_buf, src_w);
+		(src_w, src_h, size, src_buf, src_stride, thresh, med_buf, dst_w);
 
 	(dst_colored ? pass2<4> : pass2<1>)
-		(src_w, src_h, size, med_buf, src_w, dst_buf, dst_stride, arc);
+		(src_w, src_h, size, med_buf, dst_w, dst_buf, dst_stride, arc, cnt_buf);
 
 	return { 0, 0, src_w - 2 * size, src_h - 2 * size };
 }

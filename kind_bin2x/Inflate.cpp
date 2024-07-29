@@ -47,48 +47,78 @@ static inline auto pass1(int src_w, int src_h, int size,
 	med_data* med_buf, size_t med_stride)
 {
 	auto const bounds = multi_thread(src_w, [=](int thread_id, int thread_num) {
+		int x0 = src_w * thread_id / thread_num, x1 = src_w * (thread_id + 1) / thread_num;
+		auto a_buf_x0 = a_buf + x0 * a_step;
+		auto m_buf_x0 = med_buf + x0;
+		auto const count_x0 = reinterpret_cast<i32*>(m_buf_x0);
+
+		auto set_count = [&](i32 val) {
+			auto count = count_x0;
+			for (int x = x1 - x0; --x >= 0; count++) *count = val;
+		};
+
+		// top -> bottom
+		set_count(size);
+		m_buf_x0 += size * med_stride;
+		for (int y = src_h; --y >= 0; a_buf_x0 += a_stride, m_buf_x0 += med_stride) {
+			auto count = count_x0;
+			auto a_buf_y = a_buf_x0;
+			auto m_buf_y = m_buf_x0;
+
+			for (int x = x1 - x0; --x >= 0; count++, a_buf_y += a_step, m_buf_y++) {
+				++*count;
+				if (*a_buf_y > thresh) *count = 0;
+				*m_buf_y = { *count, flg::upper };
+			}
+		}
+		for (int y = size; --y >= 0; m_buf_x0 += med_stride) {
+			auto count = count_x0;
+			auto m_buf_y = m_buf_x0;
+
+			for (int x = x1 - x0; --x >= 0; count++, m_buf_y++) {
+				++*count;
+				*m_buf_y = { *count, flg::upper };
+			}
+		}
+
 		int left = src_w, right = -1;
-
-		for (int x = thread_id; x < src_w; x += thread_num) {
-			auto a_buf_x = a_buf + x * a_step;
-			auto m_buf_x = med_buf + x;
-
-			// top -> bottom
-			int count = size;
-			auto a_buf_y = a_buf_x;
-			auto m_buf_y = m_buf_x + size * med_stride;
-			for (int y = src_h; --y >= 0; a_buf_y += a_stride, m_buf_y += med_stride) {
-				count++;
-				if (*a_buf_y > thresh) count = 0;
-				*m_buf_y = { count, flg::upper };
-			}
-			for (int y = size; --y >= 0; m_buf_y += med_stride) {
-				count++;
-				*m_buf_y = { count, flg::upper };
-			}
-
-			if (count >= src_h + 2 * size) {
-				// no opaque pixels were found.
-				m_buf_y = m_buf_x + size * med_stride; m_buf_y -= med_stride;
-			}
-			else {
-				// opaque pixels exist. update the bounds.
+		{
+			int x = x0;
+			for (auto count = count_x0; x < x1; x++, count++) {
+				if (*count >= src_h + 2 * size) continue;
 				if (right < 0) left = right = x; else right = x;
+			}
+		}
+		if (left > right) {
+			// no opaque pixels were found.
+			m_buf_x0 -= med_stride; m_buf_x0 -= (size + src_h) * med_stride;
+		}
+		else {
+			// opaque pixels exist.
+			set_count(size);
+			a_buf_x0 -= a_stride; m_buf_x0 -= med_stride; m_buf_x0 -= size * med_stride;
 
-				// top <- bottom
-				count = size;
-				a_buf_y -= a_stride; m_buf_y -= med_stride; m_buf_y -= size * med_stride;
-				for (int y = src_h; --y >= 0; a_buf_y -= a_stride, m_buf_y -= med_stride) {
-					count++;
-					if (*a_buf_y > thresh) count = 0;
-					m_buf_y->push(count);
+			// top <- bottom
+			for (int y = src_h; --y >= 0; a_buf_x0 -= a_stride, m_buf_x0 -= med_stride) {
+				auto count = count_x0;
+				auto a_buf_y = a_buf_x0;
+				auto m_buf_y = m_buf_x0;
+
+				for (int x = x1 - x0; --x >= 0; count++, a_buf_y += a_step, m_buf_y++) {
+					++*count;
+					if (*a_buf_y > thresh) *count = 0;
+					m_buf_y->push(*count);
 				}
 			}
-			for (int y = size; --y >= 0; m_buf_y -= med_stride) {
-				count++;
-				*m_buf_y = { count, flg::lower };
-			}
+		}
+		for (int y = size; --y >= 0; m_buf_x0 -= med_stride) {
+			auto count = count_x0;
+			auto m_buf_y = m_buf_x0;
 
+			for (int x = x1 - x0; --x >= 0; count++, m_buf_y++) {
+				++*count;
+				*m_buf_y = { *count, flg::lower };
+			}
 		}
 
 		return std::pair{ left, right };
@@ -110,7 +140,7 @@ static inline auto pass2(int src_w, int src_h, int size,
 		void operator--() { u -= 2; l -= 2; }
 		void operator--(int) { --(*this); }
 
-		void update(med_data const& m, int32_t const* arc) {
+		void update(med_data m, int32_t const* arc) {
 			int d1 = arc[2 * m.d], d2 = arc[2 * m.d + 1];
 			switch (m.f) {
 			case flg::upper: break;
