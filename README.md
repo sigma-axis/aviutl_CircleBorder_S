@@ -2,6 +2,8 @@
 
 円形で縁取りするフィルタ効果などを追加する拡張編集フィルタプラグインです．
 
+[ダウンロードはこちら．](https://github.com/sigma-axis/aviutl_CircleBorder_S/releases)
+
 ![使用例](https://github.com/sigma-axis/aviutl_CircleBorder_S/assets/132639613/0bc4f398-3566-413f-ae41-f17b1f3aa123)
 
 
