@@ -80,10 +80,11 @@ static inline void take_sum(int src_w, int src_h, int size,
 							diff += s_buf_pt[+arc[dy] * src_step + dy * src_stride];
 					}
 					else {
-						auto c = arc[dst_w - size - x] + 1;
-						for (int dy = dy0, c1 = std::min(-c, dy1); dy <= c1; dy++)
+						int const c = arc[dst_w - size - x] + 1,
+							c0 = std::min(-c, dy1), c1 = std::max(+c, dy0);
+						for (int dy = dy0; dy <= c0; dy++)
 							diff += s_buf_pt[+arc[dy] * src_step + dy * src_stride];
-						for (int dy = std::max(+c, dy0); dy <= dy1; dy++)
+						for (int dy = c1; dy <= dy1; dy++)
 							diff += s_buf_pt[+arc[dy] * src_step + dy * src_stride];
 					}
 					sum_alpha += diff;
@@ -106,10 +107,11 @@ static inline void take_sum(int src_w, int src_h, int size,
 							diff += s_buf_pt[-arc[dy] * src_step + dy * src_stride];
 					}
 					else {
-						auto c = arc[x - size + 1] + 1;
-						for (int dy = dy0, c1 = std::min(-c, dy1); dy <= c1; dy++)
+						auto c = arc[x - size + 1] + 1,
+							c0 = std::min(-c, dy1), c1 = std::max(+c, dy0);
+						for (int dy = dy0; dy <= c0; dy++)
 							diff += s_buf_pt[-arc[dy] * src_step + dy * src_stride];
-						for (int dy = std::max(+c, dy0); dy <= dy1; dy++)
+						for (int dy = c1; dy <= dy1; dy++)
 							diff += s_buf_pt[-arc[dy] * src_step + dy * src_stride];
 					}
 					sum_alpha -= diff;
@@ -118,6 +120,7 @@ static inline void take_sum(int src_w, int src_h, int size,
 		}
 	});
 }
+
 
 inline static Bounds inflate_common(auto&& alloc_and_mask_v,
 	int src_w, int src_h,

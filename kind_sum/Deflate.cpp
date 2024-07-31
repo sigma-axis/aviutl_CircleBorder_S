@@ -73,7 +73,7 @@ static inline void take_inv_sum(int src_w, int src_h, int size_canvas, int size_
 		}
 
 		bool l2r = true;
-		auto s_buf_pt = &src_buf[size_canvas * src_step + (y0 + size_canvas) * src_stride];
+		auto s_buf_pt = src_buf + size_canvas * src_step + (y0 + size_canvas) * src_stride;
 		auto m_buf_pt = mask_buf + y0 * mask_stride;
 		auto a_buf_pt = a_buf + y0 * a_stride;
 		for (int y = y0; y < y1; y++, l2r ^= true,

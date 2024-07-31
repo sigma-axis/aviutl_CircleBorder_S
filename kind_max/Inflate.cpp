@@ -76,10 +76,10 @@ static inline void find_max(int src_w, int src_h, int size,
 					}
 					else {
 						int const c = arc[dst_w - size - x] + 1,
-							c1 = std::min(-c, dy1), c0 = std::max(+c, dy0);
-						for (int dy = dy0; dy <= c1; dy++)
+							c0 = std::min(-c, dy1), c1 = std::max(+c, dy0);
+						for (int dy = dy0; dy <= c0; dy++)
 							add(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
-						for (int dy = c0; dy <= dy1; dy++)
+						for (int dy = c1; dy <= dy1; dy++)
 							add(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
 					}
 				}
@@ -102,10 +102,10 @@ static inline void find_max(int src_w, int src_h, int size,
 					}
 					else {
 						int const c = arc[x - size + 1] + 1,
-							c1 = std::min(-c, dy1), c0 = std::max(+c, dy0);
-						for (int dy = dy0; dy <= c1; dy++)
+							c0 = std::min(-c, dy1), c1 = std::max(+c, dy0);
+						for (int dy = dy0; dy <= c0; dy++)
 							pop(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
-						for (int dy = c0; dy <= dy1; dy++)
+						for (int dy = c1; dy <= dy1; dy++)
 							pop(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
 					}
 				}
@@ -120,7 +120,6 @@ inline static Bounds inflate_common(auto&& alloc_and_mask_v,
 	i16* dst_buf, bool dst_colored, size_t dst_stride,
 	void* heap, int size_sq)
 {
-	using namespace max;
 	using namespace masking::inflation;
 
 	auto* const arc = reinterpret_cast<i32*>(heap);

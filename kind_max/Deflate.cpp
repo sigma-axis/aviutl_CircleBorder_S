@@ -34,7 +34,7 @@ static inline void find_min(int src_w, int src_h, int size,
 	int const dst_w = src_w - 2 * size, dst_h = src_h - 2 * size,
 		disk_area = 1 + 4 * (size + std::accumulate(arc + 1, arc + size + 1, 0));
 #pragma warning(suppress : 6262) // allocating > 16 KiB on stack.
-	multi_thread(dst_h, [&](int thread_id, int thread_num)
+	multi_thread(dst_w, [&](int thread_id, int thread_num)
 	{
 		// the buckets that count pixels at each alpha value (except alpha == full).
 		uint32_t bucket[max_alpha + 1]{}; // bucket[max_alpha] is simply ignored.
@@ -52,10 +52,10 @@ static inline void find_min(int src_w, int src_h, int size,
 			while (curr_min < max_alpha && bucket[curr_min] == 0) curr_min++;
 		};
 
-		int const y0 = dst_h * thread_id / thread_num, y1 = dst_h * (thread_id + 1) / thread_num;
+		int const x0 = dst_w * thread_id / thread_num, x1 = dst_w * (thread_id + 1) / thread_num;
 
 		// first state of buckets.
-		switch (mask_buf[y0 * mask_stride]) {
+		switch (mask_buf[x0]) {
 		case mask::zero: bucket[0] = disk_area - 2 * size - 1; curr_min = 0; break;
 		case mask::full: curr_min = max_alpha; break;
 		case mask::gray:
@@ -63,42 +63,42 @@ static inline void find_min(int src_w, int src_h, int size,
 			for (int dy = -size; dy <= size; dy++) {
 				int secant = arc[dy];
 				for (int dx = -secant; dx <= secant; dx++)
-					add(src_buf[(dx + size) * src_step + (y0 + dy + size) * src_stride]);
+					add(src_buf[(x0 + dx + size) * src_step + (dy + size) * src_stride]);
 			}
 			break;
 		}
 
-		bool l2r = true;
-		auto s_buf_pt = &src_buf[size * src_step + (y0 + size) * src_stride];
-		auto m_buf_pt = mask_buf + y0 * mask_stride;
-		auto a_buf_pt = a_buf + y0 * a_stride;
-		for (int y = y0; /*y < y1*/; y++, l2r ^= true,
-			s_buf_pt += src_stride, m_buf_pt += mask_stride, a_buf_pt += a_stride) {
+		bool t2b = true;
+		auto s_buf_pt = src_buf + (x0 + size) * src_step + size * src_stride;
+		auto m_buf_pt = mask_buf + x0;
+		auto a_buf_pt = a_buf + x0 * a_step;
+		for (int x = x0; /*x < x1*/; x++, t2b ^= true,
+			s_buf_pt += src_step, m_buf_pt++, a_buf_pt += a_step) {
 			// aggregate the points on the "incoming arc".
-			if (y > y0) {
+			if (x > x0) {
 				switch (*m_buf_pt) {
 				case mask::zero: curr_min = 0; break;
 				case mask::full: break; // ignore full alpha.
 				case mask::gray:
 				default:
-					for (int dx = -size; dx <= size; dx++)
-						add(s_buf_pt[dx * src_step + arc[dx] * src_stride]);
+					for (int dy = -size; dy <= size; dy++)
+						add(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
 					break;
 				}
 			}
 
-			if (l2r) {
-				for (int x = 0; x < dst_w; x++,
-					s_buf_pt += src_step, m_buf_pt++, a_buf_pt += a_step) {
+			if (t2b) {
+				for (int y = 0; y < dst_h; y++,
+					s_buf_pt += src_stride, m_buf_pt += mask_stride, a_buf_pt += a_stride) {
 					switch (*m_buf_pt) {
 					case mask::zero: *a_buf_pt = curr_min = 0; continue;
 					case mask::full: *a_buf_pt = curr_min = max_alpha; continue;
 					}
 
 					// aggregate the points on the "incoming arc".
-					if (x > 0) {
-						for (int dy = -size; dy <= size; dy++)
-							add(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
+					if (y > 0) {
+						for (int dx = -size; dx <= size; dx++)
+							add(s_buf_pt[dx * src_step + arc[dx] * src_stride]);
 					}
 
 					// write the alpha value.
@@ -106,25 +106,25 @@ static inline void find_min(int src_w, int src_h, int size,
 					*a_buf_pt = curr_min;
 
 					// aggregate the points on the "outgoing arc".
-					if (x < dst_w - 1) {
-						for (int dy = -size; dy <= size; dy++)
-							pop(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
+					if (y < dst_h - 1) {
+						for (int dx = -size; dx <= size; dx++)
+							pop(s_buf_pt[dx * src_step - arc[dx] * src_stride]);
 					}
 				}
-				s_buf_pt -= src_step; m_buf_pt--; a_buf_pt -= a_step;
+				s_buf_pt -= src_stride; m_buf_pt -= mask_stride; a_buf_pt -= a_stride;
 			}
 			else {
-				for (int x = dst_w - 1; x >= 0; x--,
-					s_buf_pt -= src_step, m_buf_pt--, a_buf_pt -= a_step) {
+				for (int y = dst_h - 1; y >= 0; y--,
+					s_buf_pt -= src_stride, m_buf_pt -= mask_stride, a_buf_pt -= a_stride) {
 					switch (*m_buf_pt) {
 					case mask::zero: *a_buf_pt = curr_min = 0; continue;
 					case mask::full: *a_buf_pt = curr_min = max_alpha; continue;
 					}
 
 					// aggregate the points on the "incoming arc".
-					if (x < dst_w - 1) {
-						for (int dy = -size; dy <= size; dy++)
-							add(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
+					if (y < dst_h - 1) {
+						for (int dx = -size; dx <= size; dx++)
+							add(s_buf_pt[dx * src_step - arc[dx] * src_stride]);
 					}
 
 					// write the alpha value.
@@ -132,23 +132,23 @@ static inline void find_min(int src_w, int src_h, int size,
 					*a_buf_pt = curr_min;
 
 					// aggregate the points on the "outgoing arc".
-					if (x > 0) {
-						for (int dy = -size; dy <= size; dy++)
-							pop(s_buf_pt[+arc[dy] * src_step + dy * src_stride]);
+					if (y > 0) {
+						for (int dx = -size; dx <= size; dx++)
+							pop(s_buf_pt[dx * src_step + arc[dx] * src_stride]);
 					}
 				}
-				s_buf_pt += src_step; m_buf_pt++; a_buf_pt += a_step;
+				s_buf_pt += src_stride; m_buf_pt += mask_stride; a_buf_pt += a_stride;
 			}
 
 			// aggregate the points on the "outgoing arc".
-			if (y < y1 - 1) {
+			if (x < x1 - 1) {
 				switch (*m_buf_pt) {
 				case mask::zero: break;
 				case mask::full: break; // ignore full alpha.
 				case mask::gray:
 				default:
-					for (int dx = -size; dx <= size; dx++)
-						pop(s_buf_pt[dx * src_step - arc[dx] * src_stride]);
+					for (int dy = -size; dy <= size; dy++)
+						pop(s_buf_pt[-arc[dy] * src_step + dy * src_stride]);
 					break;
 				}
 			}
@@ -163,7 +163,6 @@ inline static Bounds deflate_common(auto&& alloc_and_mask_h,
 	i16* dst_buf, bool dst_colored, size_t dst_stride,
 	void* heap, int size_sq)
 {
-	using namespace max;
 	using namespace masking::deflation;
 
 	auto* const arc = reinterpret_cast<i32*>(heap);
