@@ -27,6 +27,8 @@ using byte = uint8_t;
 #include "kind_max/inf_def.hpp"
 #include "kind_sum/inf_def.hpp"
 
+#include "kind_max_fast/inf_def.hpp"
+
 #include "filter_defl.hpp"
 #include "Border.hpp"
 
@@ -452,6 +454,63 @@ protected:
 	}
 } infl_max;
 
+// algorithm "max_fast".
+constexpr struct : infl_base {
+private:
+	static inline constinit int mem_max_w = 0, mem_max_h = 0;
+	static void init_mem_max()
+	{
+		size_t const mem_max = obj_mem_max();
+		std::tie(mem_max_w, mem_max_h) = max_size_cand(mem_max / (sizeof(i16) + sizeof(uint8_t)));
+
+		// trim by 4 dots until it fits within available space.
+		while (sizeof(i16) * ((mem_max_w + 1) & (-2)) * mem_max_h
+			+ max_fast::inflate_heap_size(mem_max_w, mem_max_h, std::min(mem_max_w, mem_max_h) >> 1) > mem_max)
+			mem_max_w -= 4, mem_max_h -= 4;
+	}
+
+protected:
+	std::pair<int, int> max_size() const override
+	{
+		if (mem_max_w == 0) init_mem_max();
+		return { mem_max_w, mem_max_h };
+	}
+	process_spec tell_spec(int sum_size, int neg_size) const override
+	{
+		int sum_displace = max_fast::inflate_radius<den_size>(sum_size),
+			neg_displace = max_fast::deflate_radius<den_size>(neg_size);
+		return {
+			.sum_displace = sum_displace,
+			.neg_displace = neg_displace,
+			.do_infl = sum_displace > 0,
+			.do_defl = neg_displace > 0,
+			.allows_buffer_overlap = false,
+		};
+	}
+	Bounds inflate_1(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t stride,
+		int src_w, int src_h, ExEdit::PixelYCA* dst_buf, void* heap) const override
+	{
+		return max_fast::inflate(src_w, src_h, src_buf, stride,
+			&dst_buf->a, true, 4 * stride,
+			reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(heap) + max_fast::alpha_space_size(src_w, src_h)),
+			(sum_size_raw * sum_size_raw) / (den_size * den_size), heap);
+	}
+	Bounds inflate_2(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
+		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap, void* alpha_space) const override
+	{
+		return max_fast::inflate(src_w, src_h, src_buf, src_stride,
+			dst_buf, false, dst_stride,
+			heap, (sum_size_raw * sum_size_raw) / (den_size * den_size), alpha_space);
+	}
+	Bounds deflate_2(int neg_size_raw, int param_a, i16* src_buf, size_t src_stride,
+		int src_w, int src_h, ExEdit::PixelYCA* dst_buf, size_t dst_stride, void* heap) const override
+	{
+		return max_fast::deflate(src_w, src_h, src_buf, src_stride,
+			&dst_buf->a, true, 4 * dst_stride,
+			heap, (neg_size_raw * neg_size_raw) / (den_size * den_size));
+	}
+} infl_max_fast;
+
 // algorithm "sum".
 constexpr struct : infl_base {
 private:
@@ -517,6 +576,7 @@ static constexpr infl_base const& choose_infl(Filter::Algorithm algorithm) {
 	default:
 	case algo::bin2x: return infl_bin2x;
 	case algo::max: return infl_max;
+	case algo::max_fast: return infl_max_fast;
 	case algo::sum: return infl_sum;
 	}
 }
@@ -524,6 +584,7 @@ static constexpr infl_base const& choose_infl(Filter::Algorithm algorithm) {
 constexpr Filter::Common::defl_bin<den_size, max_param_a> defl_bin{};
 constexpr Filter::Common::defl_bin2x<den_size, max_param_a> defl_bin2x{};
 constexpr Filter::Common::defl_max<den_size> defl_max{};
+constexpr Filter::Common::defl_max_fast<den_size> defl_max_fast{};
 constexpr Filter::Common::defl_sum<den_size, max_param_a> defl_sum{};
 
 static constexpr defl_base const& choose_defl(Filter::Algorithm algorithm) {
@@ -533,6 +594,7 @@ static constexpr defl_base const& choose_defl(Filter::Algorithm algorithm) {
 	default:
 	case algo::bin2x: return defl_bin2x;
 	case algo::max: return defl_max;
+	case algo::max_fast: return defl_max_fast;
 	case algo::sum: return defl_sum;
 	}
 }

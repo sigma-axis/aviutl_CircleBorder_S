@@ -69,6 +69,7 @@ using namespace Rounding_filter::params::exp;
 constexpr Filter::Common::defl_bin<den_radius, max_param_a> defl_bin{};
 constexpr Filter::Common::defl_bin2x<den_radius, max_param_a> defl_bin2x{};
 constexpr Filter::Common::defl_max<den_radius> defl_max{};
+constexpr Filter::Common::defl_max_fast<den_radius> defl_max_fast{};
 constexpr Filter::Common::defl_sum<den_radius, max_param_a> defl_sum{};
 
 static constexpr defl_base const& choose_defl(Filter::Algorithm algorithm) {
@@ -78,6 +79,7 @@ static constexpr defl_base const& choose_defl(Filter::Algorithm algorithm) {
 	default:
 	case algo::bin2x: return defl_bin2x;
 	case algo::max: return defl_max;
+	case algo::max_fast: return defl_max_fast;
 	case algo::sum: return defl_sum;
 	}
 }

@@ -26,6 +26,7 @@ using byte = uint8_t;
 #include "kind_bin/inf_def.hpp"
 #include "kind_bin2x/inf_def.hpp"
 #include "kind_max/inf_def.hpp"
+#include "kind_max_fast/inf_def.hpp"
 #include "kind_sum/inf_def.hpp"
 
 #include "Outline.hpp"
@@ -514,6 +515,56 @@ protected:
 	}
 } outline_max{};
 
+// algorithm "max_fast".
+constexpr struct : outline_base {
+private:
+	static inline constinit int mem_max_w = 0, mem_max_h = 0;
+	static void init_mem_max()
+	{
+		size_t const mem_max = obj_mem_max();
+		std::tie(mem_max_w, mem_max_h) = max_size_cand(mem_max / (2 * sizeof(i16)));
+
+		// trim by 4 dots until it fits within available space.
+		while (sizeof(i16) * ((mem_max_w + 1) & (-2)) * mem_max_h
+			+ max_fast::alpha_space_size(mem_max_w, mem_max_h) > mem_max ||
+			max_fast::inflate_heap_size(mem_max_w, mem_max_h, std::min(mem_max_w, mem_max_h) >> 1) > mem_max)
+			mem_max_w -= 4, mem_max_h -= 4;
+	}
+
+protected:
+	std::tuple<int, int> max_size() const override {
+		if (mem_max_w == 0) init_mem_max();
+		return { mem_max_w, mem_max_h };
+	}
+	process_spec tell_spec(int size_raw, bool is_final) const override {
+		int const displace = size_raw > 0 ?
+			+max_fast::inflate_radius<den_distance>(+size_raw) :
+			-max_fast::deflate_radius<den_distance>(-size_raw);
+		return {
+			.displace = displace,
+			.valid = displace != 0,
+		};
+	}
+	Bounds inflate_med(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
+		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
+		int const size_sq = (size_raw * size_raw) / (den_distance * den_distance);
+		return src_colored ?
+			max_fast::inflate(src_w, src_h, buff::alpha_to_pixel(src_buf), src_stride / 4,
+				dst_buf, false, dst_stride, heap, size_sq, dst_buf + dst_stride * mem_max_h) :
+			max_fast::inflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, false, dst_stride, heap, size_sq);
+	}
+	Bounds deflate_med(int size_raw, int param_a, i16* src_buf, bool src_colored, size_t src_stride,
+		int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap) const {
+		int const size_sq = (size_raw * size_raw) / (den_distance * den_distance);
+		return src_colored ?
+			max_fast::deflate(src_w, src_h, buff::alpha_to_pixel(src_buf), src_stride / 4,
+				dst_buf, false, dst_stride, heap, size_sq, dst_buf + dst_stride * mem_max_h) :
+			max_fast::deflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, false, dst_stride, heap, size_sq);
+	}
+} outline_max_fast{};
+
 // algorithm "sum".
 constexpr struct : outline_base {
 	constexpr static int to_cap_rate(int param_a) {
@@ -581,6 +632,7 @@ constexpr outline_base const& choose_outline(Filter::Algorithm algorithm) {
 	default:
 	case algo::bin2x: return outline_bin2x;
 	case algo::max: return outline_max;
+	case algo::max_fast: return outline_max_fast;
 	case algo::sum: return outline_sum;
 	}
 }

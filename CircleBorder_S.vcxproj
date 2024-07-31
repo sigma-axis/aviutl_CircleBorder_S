@@ -114,6 +114,8 @@
     <ClCompile Include="CircleBorder_S.cpp" />
     <ClCompile Include="kind_max\Deflate.cpp" />
     <ClCompile Include="kind_max\Inflate.cpp" />
+    <ClCompile Include="kind_max_fast\Deflate.cpp" />
+    <ClCompile Include="kind_max_fast\Inflate.cpp" />
     <ClCompile Include="kind_sum\Deflate.cpp" />
     <ClCompile Include="kind_sum\Inflate.cpp" />
     <ClCompile Include="Outline_filter.cpp" />
@@ -136,6 +138,7 @@
     <ClInclude Include="CircleBorder_S.hpp" />
     <ClInclude Include="kind_max\inf_def.hpp" />
     <ClInclude Include="kind_max\masking.hpp" />
+    <ClInclude Include="kind_max_fast\inf_def.hpp" />
     <ClInclude Include="kind_sum\inf_def.hpp" />
     <ClInclude Include="multi_thread.hpp" />
     <ClInclude Include="Outline.hpp" />

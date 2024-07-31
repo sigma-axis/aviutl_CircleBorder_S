@@ -25,6 +25,9 @@
     <Filter Include="Sum">
       <UniqueIdentifier>{fe5d535e-6ffd-4387-8f3b-ef5f610786c6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Max_Fast">
+      <UniqueIdentifier>{dd5161bf-3a6c-4fe6-adcc-677d0d817ae4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CircleBorder_S.cpp">
@@ -77,6 +80,12 @@
     </ClCompile>
     <ClCompile Include="relative_path.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_max_fast\Inflate.cpp">
+      <Filter>Max_Fast</Filter>
+    </ClCompile>
+    <ClCompile Include="kind_max_fast\Deflate.cpp">
+      <Filter>Max_Fast</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -132,6 +141,9 @@
     </ClInclude>
     <ClInclude Include="relative_path.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="kind_max_fast\inf_def.hpp">
+      <Filter>Max_Fast</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

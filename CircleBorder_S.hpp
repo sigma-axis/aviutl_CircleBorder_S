@@ -70,12 +70,13 @@ namespace Filter
 		bin2x = 1,
 		sum = 2,
 		max = 3,
+		max_fast = 4,
 	};
-	constexpr int algorithm_count = 4;
+	constexpr int algorithm_count = 5;
 
 	namespace gui
 	{
-		constexpr auto algorithm_names = "2値化\0002値化倍精度\0総和\0最大値\0";
+		constexpr auto algorithm_names = "2値化\0002値化倍精度\0総和\0最大値(安定)\0最大値(高速)\0";
 		constexpr auto algorithm_caption = L"方式",
 			param_a_name = L"αしきい値", param_a_name_alt = L"基準α和",
 			invalid_name = L"----";
@@ -102,5 +103,5 @@ namespace Filter
 #define PLUGIN_VERSION	"v1.03-beta2"
 #define PLUGIN_AUTHOR	"sigma-axis"
 #define FILTER_INFO_FMT(name, ver, author)	(name##" "##ver##" by "##author)
-#define FILTER_INFO(name)	constexpr char filter_name[] = name, info[] = FILTER_INFO_FMT(name, PLUGIN_VERSION, PLUGIN_AUTHOR)
+#define FILTER_INFO(name)	constexpr char filter_name[] = name##"2", info[] = FILTER_INFO_FMT(name##"2", PLUGIN_VERSION, PLUGIN_AUTHOR)
 

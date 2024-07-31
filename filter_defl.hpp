@@ -37,6 +37,7 @@ using byte = uint8_t;
 #include "kind_bin/inf_def.hpp"
 #include "kind_bin2x/inf_def.hpp"
 #include "kind_max/inf_def.hpp"
+#include "kind_max_fast/inf_def.hpp"
 #include "kind_sum/inf_def.hpp"
 
 #include "CircleBorder_S.hpp"
@@ -361,6 +362,50 @@ namespace Filter::Common::impl::exp
 			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const
 		{
 			return max::inflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, dst_colored, dst_stride,
+				heap, (neg_size_raw * neg_size_raw) / (den_radius * den_radius));
+		}
+	};
+
+	// algorithm "max_fast".
+	template<size_t den_radius>
+	struct defl_max_fast : defl_base<den_radius> {
+	protected:
+		using defl_base<den_radius>::process_spec;
+
+		process_spec tell_spec(int sum_size, int neg_size) const override
+		{
+			int sum_displace = max_fast::deflate_radius<den_radius>(sum_size),
+				neg_displace = max_fast::inflate_radius<den_radius>(neg_size);
+			return {
+				.sum_displace = sum_displace,
+				.neg_displace = neg_displace,
+				.do_defl = sum_displace > 0,
+				.do_infl = neg_displace > 0,
+				.allows_buffer_overlap = false,
+			};
+		}
+
+		Bounds deflate_1(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
+			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const
+		{
+			return max_fast::deflate(src_w, src_h,
+				src_buf, src_stride,
+				dst_buf, dst_colored, dst_stride,
+				reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(heap) + max_fast::alpha_space_size(src_w, src_h)),
+				(sum_size_raw * sum_size_raw) / (den_radius * den_radius), heap);
+		}
+		Bounds deflate_2(int sum_size_raw, int param_a, ExEdit::PixelYCA* src_buf, size_t src_stride,
+			int src_w, int src_h, i16* dst_buf, size_t dst_stride, void* heap, void* alpha_space) const
+		{
+			return max_fast::deflate(src_w, src_h, src_buf, src_stride,
+				dst_buf, false, dst_stride,
+				heap, (sum_size_raw * sum_size_raw) / (den_radius * den_radius), alpha_space);
+		}
+		Bounds inflate_2(int neg_size_raw, int param_a, i16* src_buf, size_t src_stride,
+			int src_w, int src_h, i16* dst_buf, bool dst_colored, size_t dst_stride, void* heap) const
+		{
+			return max_fast::inflate(src_w, src_h, src_buf, src_stride,
 				dst_buf, dst_colored, dst_stride,
 				heap, (neg_size_raw * neg_size_raw) / (den_radius * den_radius));
 		}
