@@ -92,7 +92,7 @@ namespace Filter
 
 		constexpr auto color_format = L"RGB ( %d , %d , %d )";
 		constexpr size_t size_col_fmt = std::wstring_view{ color_format }.size() + 1
-			+ 3 * (std::size(L"255")- std::size(L"%d"));
+			+ 3 * (std::size(L"255") - std::size(L"%d"));
 	}
 }
 
@@ -100,8 +100,8 @@ namespace Filter
 ////////////////////////////////
 // バージョン情報．
 ////////////////////////////////
-#define PLUGIN_VERSION	"v1.03-beta2"
+#define PLUGIN_VERSION	"v1.10-beta3"
 #define PLUGIN_AUTHOR	"sigma-axis"
 #define FILTER_INFO_FMT(name, ver, author)	(name##" "##ver##" by "##author)
-#define FILTER_INFO(name)	constexpr char filter_name[] = name##"2", info[] = FILTER_INFO_FMT(name##"2", PLUGIN_VERSION, PLUGIN_AUTHOR)
+#define FILTER_INFO(name)	constexpr char filter_name[] = name, info[] = FILTER_INFO_FMT(name, PLUGIN_VERSION, PLUGIN_AUTHOR)
 
