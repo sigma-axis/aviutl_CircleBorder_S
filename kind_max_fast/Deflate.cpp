@@ -84,38 +84,18 @@ static inline void find_min(int src_w, int src_h, int size,
 				else {
 					// search the entire disc.
 					int expiring_min = max_alpha; curr_min = max_alpha;
-					if constexpr (true) {
-						for (int dy = -size; dy <= size; dy++) {
-							int const secant = arc[dy];
-							for (int dx = -secant; dx <= secant; dx++) {
-								int a = s_buf_pt[dx * src_step + dy * src_stride];
-								if (a <= curr_min) {
-									int dur = secant + dx;
-									if (a < curr_min || dur > curr_min_dur) {
-										if (dur > 0) {
-											curr_min = a; curr_min_dur = dur;
-											if (a <= 0) goto search_end2;
-										}
-										else if (a < expiring_min) expiring_min = a;
+					for (int dy = -size; dy <= size; dy++) {
+						int const secant = arc[dy];
+						for (int dx = -secant; dx <= secant; dx++) {
+							int a = s_buf_pt[dx * src_step + dy * src_stride];
+							if (a <= curr_min) {
+								int dur = secant + dx;
+								if (a < curr_min || dur > curr_min_dur) {
+									if (dur > 0) {
+										curr_min = a; curr_min_dur = dur;
+										if (a <= 0) goto search_end2;
 									}
-								}
-							}
-						}
-					}
-					else {
-						for (int dx = size; dx >= -size; dx--) {
-							int const secant = arc[(-size - dx) >> 1],
-								dur = dx + size;
-							for (int dy = -secant; dy <= secant; dy++) {
-								int a = s_buf_pt[(dx + size - arc[dy]) * src_step + dy * src_stride];
-								if (a <= curr_min) {
-									if (a < curr_min || dur > curr_min_dur) {
-										if (dur > 0) {
-											curr_min = a; curr_min_dur = dur;
-											if (a <= 0) goto search_end2;
-										}
-										else if (a < expiring_min) expiring_min = a;
-									}
+									else if (a < expiring_min) expiring_min = a;
 								}
 							}
 						}
@@ -129,129 +109,6 @@ static inline void find_min(int src_w, int src_h, int size,
 	});
 }
 
-template<size_t src_step, size_t a_step>
-static inline void find_min_2(int src_w, int src_h, int size,
-	i16 const* src_buf, size_t src_stride,
-	mask const* mask_buf, size_t mask_stride,
-	i16* a_buf, size_t a_stride, i32 const* arc)
-{
-	// arc[i]: i ranges from -size to size.
-
-	int const dst_w = src_w - 2 * size, dst_h = src_h - 2 * size,
-		disk_area = 1 + 4 * (size + std::accumulate(arc + 1, arc + size + 1, 0));
-	multi_thread(dst_w, [&](int thread_id, int thread_num)
-	{
-		for (int x = thread_id; x < dst_w; x += thread_num) {
-			auto s_buf_pt = src_buf + (x + size) * src_step + size * src_stride;
-			auto m_buf_pt = mask_buf + x;
-			auto a_buf_pt = a_buf + x * a_step;
-
-			int curr_min = max_alpha, curr_min_dur = -1;
-			for (int y = 0; y < dst_h; y++,
-				s_buf_pt += src_stride, m_buf_pt += mask_stride, a_buf_pt += a_stride) {
-
-				// hints by masking.
-				switch (*m_buf_pt) {
-				case mask::zero:
-					*a_buf_pt = curr_min = 0;
-					curr_min_dur = 2 * size;
-					continue;
-				case mask::full:
-					*a_buf_pt = curr_min = max_alpha;
-					curr_min_dur = 2 * size;
-					continue;
-				}
-
-				if (--curr_min_dur >= 0) {
-					// search the points on the "incoming arc".
-					auto examine = [&](int dx) {
-						int dy = arc[dx];
-						int a = s_buf_pt[+dx * src_step + dy * src_stride];
-						if (a <= curr_min) {
-							int dur = 2 * dy;
-							if (a < curr_min || dur > curr_min_dur) {
-								curr_min = a; curr_min_dur = dur;
-								if (a <= 0) return true;
-							}
-						}
-						return false;
-					};
-
-					for (int dx = 0; dx >= -size; dx--) {
-						if (examine(dx)) goto search_end1;
-					}
-					for (int dx = 1; dx <= size; dx++) {
-						if (examine(dx)) goto search_end1;
-					}
-
-				search_end1:
-					*a_buf_pt = curr_min;
-				}
-				else {
-					// search the entire disc.
-					int expiring_min = max_alpha; curr_min = max_alpha;
-					if constexpr (true) {
-						for (int dx = -size; dx <= size; dx++) {
-							int const secant = arc[dx];
-							for (int dy = -secant; dy <= secant; dy++) {
-								int a = s_buf_pt[dx * src_step + dy * src_stride];
-								if (a <= curr_min) {
-									int dur = secant + dy;
-									if (a < curr_min || dur > curr_min_dur) {
-										if (dur > 0) {
-											curr_min = a; curr_min_dur = dur;
-											if (a <= 0) goto search_end2;
-										}
-										else if (a < expiring_min) expiring_min = a;
-									}
-								}
-							}
-						}
-					}
-					else if constexpr (false) {
-						for (int dy = -size; dy <= size; dy++) {
-							int const secant = arc[dy];
-							for (int dx = -secant; dx <= secant; dx++) {
-								int a = s_buf_pt[dx * src_step + dy * src_stride];
-								if (a <= curr_min) {
-									int dur = arc[dx] + dy;
-									if (a < curr_min || dur > curr_min_dur) {
-										if (dur > 0) {
-											curr_min = a; curr_min_dur = dur;
-											if (a <= 0) goto search_end2;
-										}
-										else if (a < expiring_min) expiring_min = a;
-									}
-								}
-							}
-						}
-					}
-					else {
-						for (int dy = size; dy >= -size; dy--) {
-							int const secant = arc[(-size - dy) >> 1],
-								dur = dy + size;
-							for (int dx = -secant; dx <= secant; dx++) {
-								int a = s_buf_pt[dx * src_step + (dy + size - arc[dx]) * src_stride];
-								if (a <= curr_min) {
-									if (a < curr_min || dur > curr_min_dur) {
-										if (dur > 0) {
-											curr_min = a; curr_min_dur = dur;
-											if (a <= 0) goto search_end2;
-										}
-										else if (a < expiring_min) expiring_min = a;
-									}
-								}
-							}
-						}
-					}
-
-				search_end2:
-					*a_buf_pt = std::min(curr_min, expiring_min);
-				}
-			}
-		}
-	});
-}
 
 inline static Bounds deflate_common(auto&& alloc_and_mask_h,
 	int src_w, int src_h,
