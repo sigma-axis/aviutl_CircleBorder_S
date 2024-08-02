@@ -692,7 +692,7 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 			// fill with the pattern image.
 			auto blend = [&, img_stride = efpip->obj_line](ExEdit::PixelYCA const& infl, ExEdit::PixelYCA const& orig, int px_x, int px_y) noexcept -> ExEdit::PixelYCA {
 				auto& col = img[px_x + px_y * img_stride];
-				int a = ((alpha * ((infl.a * col.a) >> log2_max_alpha)) >> log2_max_alpha) - orig.a;
+				int a = (alpha * (((infl.a - orig.a) * col.a) >> log2_max_alpha)) >> log2_max_alpha;
 				int A = static_cast<uint32_t>(f_alpha * orig.a) >> log2_max_alpha; // making sure A >= 0.
 				if (a > 0) return {
 					.y  = static_cast<i16>((a * col.y + A * orig.y) / (a + A)),
@@ -735,7 +735,7 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 			// fill with specified color.
 			auto const col = buff::fromRGB(exdata->color.r, exdata->color.g, exdata->color.b);
 			auto blend = [&](ExEdit::PixelYCA const& infl, ExEdit::PixelYCA const& orig) noexcept -> ExEdit::PixelYCA {
-				int a = ((alpha * infl.a) >> log2_max_alpha) - orig.a;
+				int a = (alpha * (infl.a - orig.a)) >> log2_max_alpha;
 				int A = static_cast<uint32_t>(f_alpha * orig.a) >> log2_max_alpha; // making sure A >= 0.
 				if (a > 0) return {
 					.y  = static_cast<i16>((a * col.y  + A * orig.y ) / (a + A)),
