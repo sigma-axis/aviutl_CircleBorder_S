@@ -107,14 +107,18 @@ static inline void find_max(int src_w, int src_h, int size,
 				else {
 					// search the entire disc.
 					int expiring_max = 0; curr_max = 0;
-					for (int dx = dx_min; dx <= dx_max; dx++) {
-						int const secant = arc[dx],
-							dy0 = std::max(-secant, size - y),
-							dy1 = std::min(+secant, dst_h - size - y - 1);
-						for (int dy = dy0; dy <= dy1; dy++) {
-							int a = s_buf_pt[dx * src_step + dy * src_stride];
+					int const
+						dy0 = std::max(-size, size - y),
+						dy1 = std::min(+size, dst_h - size - y - 1);
+					for (int dy = dy0; dy <= dy1; dy++) {
+						int const secant = arc[dy],
+							dx0 = std::max(-secant, dx_min),
+							dx1 = std::min(+secant, dx_max);
+						auto s_buf_dy = s_buf_pt + dx0 * src_step + dy * src_stride;
+						for (int dx = dx0; dx <= dx1; dx++, s_buf_dy += src_step) {
+							int a = *s_buf_dy;
 							if (a >= curr_max) {
-								int dur = secant + dy;
+								int dur = arc[dx] + dy;
 								if (a > curr_max || dur > curr_max_dur) {
 									if (dur > 0) {
 										curr_max = a; curr_max_dur = dur;
