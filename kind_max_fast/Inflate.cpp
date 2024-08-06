@@ -109,7 +109,7 @@ static inline void find_max(int src_w, int src_h, int size,
 					int expiring_max = 0; curr_max = 0;
 					int const
 						dy0 = std::max(-size, size - y),
-						dy1 = std::min(+size, dst_h - size - y - 1);
+						dy1 = std::min(+size, dst_h - size - 1 - y);
 					for (int dy = dy0; dy <= dy1; dy++) {
 						int const secant = arc[dy],
 							dx0 = std::max(-secant, dx_min),

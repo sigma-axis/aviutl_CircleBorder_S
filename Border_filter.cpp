@@ -669,23 +669,16 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 		auto result = choose_infl(exdata->algorithm)(lifted_size, neg_size, blur_px, param_a, efpip);
 		if (result.invalid) return TRUE;
 
+		if (result.is_empty) {
+			// the inflated background is entirely transparent.
+			expand_foursides(result.displace, f_alpha, efp, efpip);
+			return TRUE;
+		}
+
 		int const
 			dst_w = efpip->obj_w += 2 * result.displace,
 			dst_h = efpip->obj_h += 2 * result.displace;
 		std::swap(efpip->obj_temp, efpip->obj_edit);
-
-		if (result.is_empty) {
-			// the entire image is transparent.
-			if (result.displace > 0) {
-				efp->exfunc->fill(efpip->obj_temp,
-					src_w, 0, dst_w - src_w, src_h,
-					0, 0, 0, 0, 0x02);
-				efp->exfunc->fill(efpip->obj_temp,
-					0, src_h, dst_w, dst_h - src_h,
-					0, 0, 0, 0, 0x02);
-			}
-			return TRUE;
-		}
 
 		if (tiled_image const img{ exdata->file, img_x, img_y, result.displace, efp, *exedit.memory_ptr }) {
 			// image seems to have been successfully loaded.
