@@ -603,15 +603,16 @@ static inline void expand_foursides(int displace, int f_alpha, ExEdit::Filter* e
 {
 	if (displace <= 0) return;
 
-	efp->exfunc->fill(efpip->obj_temp,
-		0, 0, efpip->obj_w + 2 * displace, efpip->obj_h + 2 * displace,
-		0, 0, 0, 0, 0x02);
+	buff::clear_alpha(efpip->obj_temp, efpip->obj_line,
+		0, 0, efpip->obj_w + 2 * displace, efpip->obj_h + 2 * displace);
 	if (f_alpha > 0) {
-		efp->exfunc->bufcpy(efpip->obj_temp, displace, displace,
-			efpip->obj_edit, 0, 0, efpip->obj_w, efpip->obj_h, max_alpha - f_alpha,
-			0x12000003
-			| (f_alpha < max_alpha ? 0 : 1 << 24) // flag to ignore alpha multiplication.
-		);
+		multi_thread(efpip->obj_h, [&](int thread_id, int thread_num) {
+			int const y0 = efpip->obj_h * thread_id / thread_num, y1 = efpip->obj_h * (thread_id + 1) / thread_num;
+			auto s_buf_y = efpip->obj_edit + y0 * efpip->obj_line,
+				d_buf_y = efpip->obj_temp + displace + (displace + y0) * efpip->obj_line;
+			for (int y = y1 - y0; --y >= 0; s_buf_y += efpip->obj_line, d_buf_y += efpip->obj_line)
+				std::memcpy(d_buf_y, s_buf_y, sizeof(*d_buf_y) * efpip->obj_w);
+		});
 	}
 	efpip->obj_w += 2 * displace; efpip->obj_h += 2 * displace;
 	std::swap(efpip->obj_temp, efpip->obj_edit);
