@@ -2,7 +2,7 @@
 
 円形で縁取りするフィルタ効果などを追加する拡張編集フィルタプラグインです．
 
-[ダウンロードはこちら．](https://github.com/sigma-axis/aviutl_CircleBorder_S/releases)
+[ダウンロードはこちら．](https://github.com/sigma-axis/aviutl_CircleBorder_S/releases) [紹介動画．](https://www.nicovideo.jp/watch/sm43972213)
 
 ![使用例](https://github.com/sigma-axis/aviutl_CircleBorder_S/assets/132639613/0bc4f398-3566-413f-ae41-f17b1f3aa123)
 
@@ -577,7 +577,7 @@
 
   - 全体が透明な画像に対して「縁取りσ」をかけると別の画像が現れたのを修正．
 
-  - その他最適化 / コード整理．
+  - その他最適化 / コード整理 / バグ修正．
 
 - **v1.02** (2024-07-08)
 
