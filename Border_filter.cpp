@@ -770,7 +770,7 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 			-lifted_size, neg_size, blur_px, param_a, false, false, efpip);
 		if (result.invalid) return TRUE;
 
-		if (tiled_image const img{ exdata->file, img_x, img_y, -result.displace, efp, *exedit.memory_ptr }) {
+		if (tiled_image const img{ exdata->file, img_x, img_y, 0, efp, *exedit.memory_ptr }) {
 			// image seems to have been successfully loaded.
 			// fill with the pattern image.
 			auto blend = [&, img_stride = efpip->obj_line](i16 defl, ExEdit::PixelYCA const& orig, int px_x, int px_y) noexcept -> ExEdit::PixelYCA {
@@ -799,7 +799,7 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 				multi_thread(src_h, [&](int thread_id, int thread_num) {
 					int const y0 = src_h * thread_id / thread_num, y1 = src_h * (thread_id + 1) / thread_num;
 					int i_y = (y0 + img.oy) % img.h;
-					auto incr_y = [&] { i_y++; if (i_y >= img.w) i_y -= img.h; };
+					auto incr_y = [&] { i_y++; if (i_y >= img.h) i_y -= img.h; };
 					auto* dst_y = efpip->obj_edit + y0 * efpip->obj_line;
 					for (int y = y1 - y0; --y >= 0; dst_y += efpip->obj_line, incr_y()) {
 						int i_x = img.ox;
