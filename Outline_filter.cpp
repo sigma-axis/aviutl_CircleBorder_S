@@ -725,7 +725,7 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 			return { .y = col.y, .cb = col.cb, .cr = col.cr, .a = src_a };
 		};
 
-		multi_thread(/*dst_h*/true, [&](int thread_id, int thread_num) {
+		multi_thread(dst_h, [&](int thread_id, int thread_num) {
 			for (int y = thread_id; y < dst_h; y += thread_num) {
 				auto* dst = efpip->obj_temp + y * efpip->obj_line;
 				if (y < T || y >= B) {
