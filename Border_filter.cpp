@@ -599,19 +599,39 @@ static constexpr defl_base const& choose_defl(Filter::Algorithm algorithm) {
 	}
 }
 
+// assumes displace >= 0.
 static inline void expand_foursides(int displace, int f_alpha, ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 {
-	if (displace <= 0) return;
+	if (displace <= 0 && f_alpha >= max_alpha) return;
 
-	buff::clear_alpha(efpip->obj_temp, efpip->obj_line,
-		0, 0, efpip->obj_w + 2 * displace, efpip->obj_h + 2 * displace);
-	if (f_alpha > 0) {
+	if (displace > 0 || f_alpha <= 0)
+		buff::clear_alpha(efpip->obj_temp, efpip->obj_line,
+			0, 0, efpip->obj_w + 2 * displace, efpip->obj_h + 2 * displace);
+
+	if (f_alpha >= max_alpha) {
 		multi_thread(efpip->obj_h, [&](int thread_id, int thread_num) {
 			int const y0 = efpip->obj_h * thread_id / thread_num, y1 = efpip->obj_h * (thread_id + 1) / thread_num;
 			auto s_buf_y = efpip->obj_edit + y0 * efpip->obj_line,
 				d_buf_y = efpip->obj_temp + displace + (displace + y0) * efpip->obj_line;
 			for (int y = y1 - y0; --y >= 0; s_buf_y += efpip->obj_line, d_buf_y += efpip->obj_line)
 				std::memcpy(d_buf_y, s_buf_y, sizeof(*d_buf_y) * efpip->obj_w);
+		});
+	}
+	else if (f_alpha > 0) {
+		multi_thread(efpip->obj_h, [&](int thread_id, int thread_num) {
+			int const y0 = efpip->obj_h * thread_id / thread_num, y1 = efpip->obj_h * (thread_id + 1) / thread_num;
+			auto s_buf_y = efpip->obj_edit + y0 * efpip->obj_line,
+				d_buf_y = efpip->obj_temp + displace + (displace + y0) * efpip->obj_line;
+			for (int y = y1 - y0; --y >= 0; s_buf_y += efpip->obj_line, d_buf_y += efpip->obj_line) {
+				auto s_buf_x = s_buf_y, d_buf_x = d_buf_y;
+				for (int x = efpip->obj_w; --x >= 0; s_buf_x++, d_buf_x++)
+					*d_buf_x = {
+						.y  = s_buf_x->y ,
+						.cb = s_buf_x->cb,
+						.cr = s_buf_x->cr,
+						.a  = static_cast<i16>((f_alpha * s_buf_x->a) >> log2_max_alpha),
+					};
+			}
 		});
 	}
 	efpip->obj_w += 2 * displace; efpip->obj_h += 2 * displace;
@@ -649,19 +669,9 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 
 	// handle trivial cases.
 	if (size == 0 || alpha <= 0) {
-		if (size > 0) {
-			if (int displace = choose_infl(exdata->algorithm)
-				.measure_displace(lifted_size, neg_size, blur_px, src_w, src_h);
-				displace > 0) {
-				expand_foursides(displace, f_alpha, efp, efpip);
-				return TRUE;
-			}
-		}
-		if (f_alpha >= max_alpha); // nothing to do.
-		else if (f_alpha <= 0)
-			buff::clear_alpha(efpip->obj_edit, efpip->obj_line, 0, 0, src_w, src_h);
-		else
-			buff::mult_alpha(f_alpha, efpip->obj_edit, efpip->obj_line, 0, 0, src_w, src_h);
+		expand_foursides(size <= 0 ? 0 : choose_infl(exdata->algorithm)
+			.measure_displace(lifted_size, neg_size, blur_px, src_w, src_h),
+			f_alpha, efp, efpip);
 		return TRUE;
 	}
 
