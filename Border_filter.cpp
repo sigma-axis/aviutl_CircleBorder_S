@@ -205,8 +205,11 @@ public:
 			diff_disp_cnt = diff_displace * (1 + efpip->obj_line);
 
 		Bounds bd{ 0, 0, src_w, src_h };
-		if (!sz.do_infl && !sz.do_defl) zero_op(param_a, efpip->obj_edit, efpip->obj_line,
-			bd.wd(), bd.ht(), &efpip->obj_temp->a, true, 4 * efpip->obj_line);
+		if (!sz.do_infl && !sz.do_defl) {
+			zero_op(param_a, efpip->obj_edit, efpip->obj_line,
+				bd.wd(), bd.ht(), &efpip->obj_temp[diff_disp_cnt].a, true, 4 * efpip->obj_line);
+			bd = bd.move(diff_displace, diff_displace);
+		}
 		else {
 			if (sz.do_defl) {
 				// allocate memory layout.
@@ -258,12 +261,12 @@ public:
 
 				bd = bd.inflate_br(2 * sz.blur_displace);
 			}
-
-			// clear the four sides of margins if present.
-			int dst_w = src_w + 2 * displace, dst_h = src_h + 2 * displace;
-			buff::clear_alpha_chrome(efpip->obj_temp, efpip->obj_line,
-				{ 0, 0, dst_w, dst_h }, bd);
 		}
+
+		// clear the four sides of margins if present.
+		int dst_w = src_w + 2 * displace, dst_h = src_h + 2 * displace;
+		buff::clear_alpha_chrome(efpip->obj_temp, efpip->obj_line,
+			{ 0, 0, dst_w, dst_h }, bd);
 
 		return { .displace = displace };
 	}
