@@ -562,6 +562,10 @@
 
 ## 改版履歴
 
+- **v1.14** (2025-01-06)
+
+  - 「アウトラインσ」で最大画像サイズを超えると例外が発生していたのを修正．
+
 - **v1.13** (2024-11-23)
 
   - 「縁取りσ」で，`サイズ` が `0.1` 以上 `0.4` 以下で，画像が位置ずれしたり，ゴミ画像が残ることがあったのを修正．
@@ -620,7 +624,7 @@
 
 The MIT License (MIT)
 
-Copyright (C) 2024 sigma-axis
+Copyright (C) 2024-2025 sigma-axis
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
