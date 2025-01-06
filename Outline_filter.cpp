@@ -673,11 +673,11 @@ BOOL impl::func_proc(ExEdit::Filter* efp, ExEdit::FilterProcInfo* efpip)
 		return FALSE; // invalidate subsequent filters.
 	}
 
-	int const displace = std::min({
+	int const displace = std::min(std::min(
+		exedit.yca_max_w - src_w, // also be aware of the maximum size.
+		exedit.yca_max_h - src_h) >> 1,
 		arith::floor_div(distance + (den_distance - 1), den_distance)
-			+ (thickness >= 0 ? (thickness + (den_distance - 1)) / den_distance : 0),
-		(exedit.yca_max_w - efpip->obj_w) >> 1, // also be aware of the max size.
-		(exedit.yca_max_h - efpip->obj_h) >> 1 }),
+			+ (thickness >= 0 ? (thickness + (den_distance - 1)) / den_distance : 0)),
 		dst_w = efpip->obj_w += 2 * displace,
 		dst_h = efpip->obj_h += 2 * displace;
 
